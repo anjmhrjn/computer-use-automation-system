@@ -243,7 +243,8 @@ def test_handoff_evidence_is_written_through_the_redactor(tmp_path: Path) -> Non
     )
     after = json.loads((directory / "after.json").read_text())
     assert after["location"] == "/members/search"
-    # The after-state is the search page with the id still typed: that textbox is
-    # exactly what the after screenshot masked.
-    assert surface.captured[-1] == ["box"]
+    # Captures in order: the completed first step, the run's failure snapshot, then
+    # the handoff's before and after. The after-state is the search page with the
+    # id still typed: that textbox is exactly what the after screenshot masked.
+    assert surface.captured[:4] == [[], [], [], ["box"]]
     assert (directory / "after.png").read_bytes().startswith(b"\x89PNG")

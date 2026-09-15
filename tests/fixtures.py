@@ -39,7 +39,7 @@ def capability() -> Capability:
 def session(surface: Surface, params: dict[str, str] | None = None) -> Session:
     """A session with a permit-everything policy and a silent log, for tests of
     things below the chokepoint (predicates, classification)."""
-    return Session(surface, params or {}, Policy(("*",), True), EventLog(None, Redactor(())))
+    return Session(surface, params or {}, Policy(("*",), True), EventLog((), Redactor(())))
 
 
 class ScriptedSurface:

@@ -1,0 +1,3 @@
+{"ts": 1789512175.282889, "event": "action", "step_id": "navigate_members_search", "kind": "navigate", "risk": "read_only", "location": "blank", "target": null}
+{"ts": 1789512175.302281, "event": "step_completed", "step_id": "navigate_members_search", "resolved_tier": null, "elapsed_ms": 24, "recoveries": []}
+{"ts": 1789512175.37468, "event": "run_finished", "status": "failed", "outcome": null, "failure_kind": "target_drift"}

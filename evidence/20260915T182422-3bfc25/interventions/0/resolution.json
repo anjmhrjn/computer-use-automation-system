@@ -1,0 +1,5 @@
+{
+ "kind": "retry",
+ "resume_from": "open_search",
+ "note": "re-authenticated"
+}

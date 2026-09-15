@@ -1,6 +1,7 @@
 """Structured run events, one JSON line each. The log cannot exist without a
 redactor and redacts the whole serialised line, so there is no field a caller can
-add that bypasses invariant 6. A `None` stream discards."""
+add that bypasses invariant 6. Every stream gets the same redacted line; no
+streams discards."""
 
 from __future__ import annotations
 
@@ -12,8 +13,8 @@ from cua.policy import Redactor
 
 
 class EventLog:
-    def __init__(self, stream: TextIO | None, redactor: Redactor) -> None:
-        self._stream = stream
+    def __init__(self, streams: tuple[TextIO, ...], redactor: Redactor) -> None:
+        self._streams = streams
         self._redactor = redactor
 
     @property
@@ -21,7 +22,9 @@ class EventLog:
         return self._redactor
 
     def emit(self, event: str, **fields: object) -> None:
-        if self._stream is None:
+        if not self._streams:
             return
         line = json.dumps({"ts": time.time(), "event": event, **fields}, default=str)
-        self._stream.write(self._redactor.redact(line) + "\n")
+        redacted = self._redactor.redact(line) + "\n"
+        for stream in self._streams:
+            stream.write(redacted)

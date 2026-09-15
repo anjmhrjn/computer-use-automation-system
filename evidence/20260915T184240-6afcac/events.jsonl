@@ -1,0 +1,11 @@
+{"ts": 1789512160.670701, "event": "action", "step_id": "navigate_members_search", "kind": "navigate", "risk": "read_only", "location": "blank", "target": null}
+{"ts": 1789512160.696476, "event": "step_completed", "step_id": "navigate_members_search", "resolved_tier": null, "elapsed_ms": 33, "recoveries": []}
+{"ts": 1789512160.741816, "event": "action", "step_id": "enter_member_id", "kind": "typetext", "risk": "reversible", "location": "/members/search", "target": {"role": "textbox", "name": "Member ID"}}
+{"ts": 1789512160.759307, "event": "step_completed", "step_id": "enter_member_id", "resolved_tier": "name", "elapsed_ms": 20, "recoveries": []}
+{"ts": 1789512160.807921, "event": "action", "step_id": "click_search", "kind": "click", "risk": "read_only", "location": "/members/search", "target": {"role": "button", "name": "Search"}}
+{"ts": 1789512160.855053, "event": "step_completed", "step_id": "click_search", "resolved_tier": "container", "elapsed_ms": 53, "recoveries": []}
+{"ts": 1789512160.911278, "event": "action", "step_id": "read_plan_status", "kind": "readtext", "risk": "read_only", "location": "/member/<param:member_id>", "target": {"role": "definition", "name": ""}}
+{"ts": 1789512160.9152021, "event": "step_completed", "step_id": "read_plan_status", "resolved_tier": "label", "elapsed_ms": 13, "recoveries": []}
+{"ts": 1789512161.122005, "event": "action", "step_id": "read_renewal_date", "kind": "readtext", "risk": "read_only", "location": "/member/<param:member_id>", "target": {"role": "definition", "name": ""}}
+{"ts": 1789512161.125773, "event": "step_completed", "step_id": "read_renewal_date", "resolved_tier": "label", "elapsed_ms": 8, "recoveries": []}
+{"ts": 1789512161.1666062, "event": "run_finished", "status": "success", "outcome": "plan_status_and_renewal_date_found", "failure_kind": null}

@@ -1,0 +1,7 @@
+{"ts": 1789512169.004666, "event": "action", "step_id": "navigate_members_search", "kind": "navigate", "risk": "read_only", "location": "blank", "target": null}
+{"ts": 1789512169.0282722, "event": "step_completed", "step_id": "navigate_members_search", "resolved_tier": null, "elapsed_ms": 27, "recoveries": []}
+{"ts": 1789512169.069799, "event": "action", "step_id": "enter_member_id", "kind": "typetext", "risk": "reversible", "location": "/members/search", "target": {"role": "textbox", "name": "Member ID"}}
+{"ts": 1789512169.089052, "event": "step_completed", "step_id": "enter_member_id", "resolved_tier": "name", "elapsed_ms": 24, "recoveries": []}
+{"ts": 1789512169.260293, "event": "action", "step_id": "click_search", "kind": "click", "risk": "read_only", "location": "/members/search", "target": {"role": "button", "name": "Search"}}
+{"ts": 1789512169.298761, "event": "step_completed", "step_id": "click_search", "resolved_tier": "container", "elapsed_ms": 42, "recoveries": []}
+{"ts": 1789512169.338356, "event": "run_finished", "status": "business_outcome", "outcome": "member_not_found", "failure_kind": null}

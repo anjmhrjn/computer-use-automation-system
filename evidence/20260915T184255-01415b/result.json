@@ -1,0 +1,23 @@
+{
+  "run_id": "20260915T184255-01415b",
+  "capability_id": "memberserve.lookup_member_plan_status_and_renewal_date",
+  "version": "1.0.0",
+  "status": "failed",
+  "outcome": null,
+  "outputs": {},
+  "steps": [
+    {
+      "step_id": "navigate_members_search",
+      "resolved_tier": null,
+      "elapsed_ms": 24,
+      "recoveries": []
+    }
+  ],
+  "interventions": [],
+  "failure": {
+    "kind": "target_drift",
+    "step_id": "enter_member_id",
+    "expected": "exactly one 'textbox' in frame []",
+    "observed": "2 nodes match 'textbox' after every signal; tiers: frame+role(63->2) > name(2->0, skipped) > label(2->0, skipped); candidates: [{'node_id': '3:E56654A9:6', 'role': 'textbox', 'name': 'Site search terms', 'label': None, 'frame_path': []}, {'node_id': '3:E56654A9:23', 'role': 'textbox', 'name': 'Member No.', 'label': 'Member No.', 'frame_path': []}]"
+  }
+}

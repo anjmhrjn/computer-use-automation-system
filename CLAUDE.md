@@ -113,7 +113,7 @@ Schema first, and replay before discovery — if replay works on a hand-authored
 | 7 | Discovery loop + `--from-transcript` fixture mode | done |
 | 8 | Compile step: transcript -> Capability. `cua compile` merges a success run with prefix-compatible business-outcome runs; compiled artifact replays both branches | done |
 | 9 | Escalation: control token, intervention request, console, resume. Human actions recorded as before/after AX diff + masked screenshots + operator note. Environment-blocked failures escalate; artifact/guardrail failures never do | done |
-| 10 | Evidence: discovery, clean replay, business-outcome replay, hard-failure replay | todo |
+| 10 | Evidence: discovery, clean replay, business-outcome replay, hard-failure replay. Replay writes `evidence/<run_id>/` (events, redacted result, per-step AX + masked PNG, failure state); three replay runs recorded next to the two discovery runs | done |
 | 11 | README, tests, REPORT.md | todo |
 | 12 | Stretch: variant-b via tenant overlay | todo |
 

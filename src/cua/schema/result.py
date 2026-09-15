@@ -38,6 +38,7 @@ class ReplayResult(StrictModel):
     earlier steps had read something. `interventions` lists every human handoff in
     order; a run that was resumed after one still reports its outcome normally."""
 
+    run_id: str
     capability_id: str
     version: str
     status: ReplayStatus

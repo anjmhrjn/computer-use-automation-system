@@ -153,6 +153,7 @@ def _replay(args: argparse.Namespace) -> int:
         print(f"error  {exc}", file=sys.stderr)
         return 2
 
+    print(f"evidence  {args.evidence_dir / result.run_id}", file=sys.stderr)
     print(result.model_dump_json(indent=2))
     return 1 if result.status is ReplayStatus.failed else 0
 
@@ -236,7 +237,7 @@ def app() -> int:
         help="operator console to hand off to on an escalating failure; without it the run fails",
     )
     run.add_argument(
-        "--evidence-dir", type=Path, default=EVIDENCE_DIR, help="where intervention evidence goes"
+        "--evidence-dir", type=Path, default=EVIDENCE_DIR, help="where run evidence goes"
     )
 
     console = subparsers.add_parser("serve", help="run the mock operator console")

@@ -12,7 +12,7 @@ import secrets
 import time
 from pathlib import Path
 
-from cua.escalation import EscalationError, Escalator, Snapshot, minimal_masks, write_handoff
+from cua.escalation import EscalationError, Escalator, write_handoff
 from cua.schema import (
     Capability,
     Failure,
@@ -22,8 +22,7 @@ from cua.schema import (
     Resolution,
     ResolutionKind,
 )
-from cua.surface import SurfaceNotReady
-
+from .evidence import snapshot
 from .session import Session
 
 
@@ -47,7 +46,7 @@ def handoff(
     )
     step_ids = [s.step_id for s in capability.steps]
     failed_at = step_ids.index(failure.step_id)
-    before = _snapshot(session)
+    before = snapshot(session)
     request = InterventionRequest(
         request_id=f"{run_id}-{ordinal}",
         run_id=run_id,
@@ -71,7 +70,7 @@ def handoff(
         resolution = escalator.request(request)
     finally:
         session.token.return_to_automation()
-    after = _snapshot(session)
+    after = snapshot(session)
     session.log.emit(
         "intervention_resolved",
         step_id=failure.step_id,
@@ -122,13 +121,3 @@ def _resume_index(
         raise EscalationError(f"resume_from {resolution.resume_from!r} is not one of {resumable}")
     return resumable.index(resolution.resume_from)
 
-
-def _snapshot(session: Session) -> Snapshot | None:
-    """The surface may be exactly as unobservable as the failure says it is (a hung
-    navigation); then there is no state to record, and that is recorded."""
-    try:
-        observation = session.observe()
-        png = session.capture(minimal_masks(observation, session.log.redactor))
-    except SurfaceNotReady:
-        return None
-    return Snapshot(observation, png)

@@ -604,3 +604,26 @@ written as `<side>.unobservable`, not skipped. `events.jsonl` and `result.json` 
 replay are not written here; item 10 owns the shape of replay evidence and this item
 does not scaffold it. Discovery keeps halting on interstitials and risky turns
 (item 7); escalating discovery is out of scope.
+
+**Replay evidence is one directory per run, and the snapshot per step is the
+observation that satisfied its postcondition.** `evidence/<run_id>/` holds
+`events.jsonl` (the same redacted lines the CLI streams to stderr — `EventLog` fans
+out to every stream it is given, so there is no second formatter), `result.json`,
+`ax/<step_id>.json` + `.png` per completed step, `failure.json` + `.png` (or
+`failure.unobservable`) when the run stopped, and `interventions/<n>/` from item 9
+unchanged. The pre-action observation was rejected as the per-step record: the
+resolver's choice is already in the trace (`resolved_tier`), and what a reviewer
+needs to check is the state the engine *accepted* as "this step worked" — that is
+the postcondition-satisfying observation, and the screenshot is taken of that page.
+`result.json` passes the redactor although the result on stdout does not: stdout is
+the caller's answer, the file is evidence, and evidence readers are the audience the
+redactor exists for. Outputs not declared sensitive (`plan_status`) therefore stay
+legible on disk, exactly as in the discovery snapshots. A step re-run after a handoff
+overwrites its own files rather than versioning them; the trace list shows the
+detour and the intervention directory holds the before/after. `ReplayResult` gains
+`run_id` so a caller holding only stdout can find the directory; it is the one
+schema change. Learned in the first live run: the typed value of an `<input>` is a
+text node inside the control's user-agent shadow tree, which CDP refuses to tag, so
+the adapter now climbs out of shadow trees to the host before stamping — the mask
+lands on the `<input>` itself, wider than the value, never narrower. The
+uncommitted item-9 run `20260915T182422-3bfc25` is left for the author to commit.

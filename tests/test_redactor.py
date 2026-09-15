@@ -92,7 +92,7 @@ def test_failure_strings_and_event_lines_are_redacted() -> None:
 def test_log_never_sees_typed_text_even_when_not_sensitive() -> None:
     stream = io.StringIO()
     surface = ScriptedSurface()
-    session = Session(surface, {}, Policy(("*",), True), EventLog(stream, Redactor(())))
+    session = Session(surface, {}, Policy(("*",), True), EventLog((stream,), Redactor(())))
     session.observe()
     session.act(TypeText("plainly-visible"), node("box", "textbox", "Member ID"), RiskClass.read_only)
 
@@ -106,7 +106,7 @@ def test_log_never_sees_typed_text_even_when_not_sensitive() -> None:
 def test_policy_denial_is_logged_then_raised() -> None:
     stream = io.StringIO()
     surface = ScriptedSurface()
-    session = Session(surface, {}, Policy(("/x",), False), EventLog(stream, Redactor(())))
+    session = Session(surface, {}, Policy(("/x",), False), EventLog((stream,), Redactor(())))
     with pytest.raises(PolicyDenied, match="/y"):
         session.act(Navigate("/y"), None, RiskClass.read_only)
 
@@ -116,4 +116,4 @@ def test_policy_denial_is_logged_then_raised() -> None:
 
 
 def test_silent_log_writes_nothing() -> None:
-    EventLog(None, Redactor(())).emit("action", step_id="s")  # must not raise
+    EventLog((), Redactor(())).emit("action", step_id="s")  # must not raise

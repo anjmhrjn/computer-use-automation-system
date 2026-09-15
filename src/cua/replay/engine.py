@@ -16,7 +16,8 @@ The exceptions are caller errors: `MissingParameter`, raised before the run, and
 `EscalationError`, when the console the caller named cannot be reached or answers
 with something that is not a resolution. Every string that leaves as a failure or
 an event passes the run's redactor (invariant 6); outputs do not, they are the
-answer the caller asked for.
+answer the caller asked for. With an evidence directory the run also leaves
+`evidence/<run_id>/` behind (`evidence.py`), where the result is redacted too.
 
 With an escalator, a failure whose kind escalates (`classify.ESCALATES`) becomes a
 human handoff instead of a result; the run resumes from the step the operator
@@ -70,6 +71,7 @@ from .errors import (
     TargetUnresolved,
 )
 from .events import EventLog
+from .evidence import RunEvidence, snapshot
 from .handoff import handoff, new_run_id
 from .predicates import describe, holds
 from .session import Session
@@ -83,6 +85,8 @@ class _Run:
     capability: Capability
     profile: AppProfile
     session: Session
+    run_id: str
+    evidence: RunEvidence | None
     outputs: dict[str, str] = field(default_factory=dict)
     traces: list[StepTrace] = field(default_factory=list)
     interventions: list[InterventionRecord] = field(default_factory=list)
@@ -108,20 +112,39 @@ def replay(
         raise ValueError(
             f"profile is for {profile.app_id!r}, capability targets {capability.target.app_id!r}"
         )
-    log = EventLog(log_stream, Redactor.for_run(capability, params))
-    policy = Policy(tuple(profile.allowed_locations), approve_risky)
-    run = _Run(capability, profile, Session(surface, params, policy, log))
+    redactor = Redactor.for_run(capability, params)
     run_id = new_run_id()
+    evidence = None if evidence_dir is None else RunEvidence(evidence_dir / run_id, redactor)
+    streams = tuple(s for s in (log_stream, evidence and evidence.events) if s is not None)
+    policy = Policy(tuple(profile.allowed_locations), approve_risky)
+    session = Session(surface, params, policy, EventLog(streams, redactor))
+    run = _Run(capability, profile, session, run_id, evidence)
+    try:
+        return _replay(run, escalator, evidence_dir)
+    finally:
+        if evidence is not None:
+            evidence.close()
+
+
+def _replay(run: _Run, escalator: Escalator | None, evidence_dir: Path | None) -> ReplayResult:
     start = 0
     while True:
         try:
             return _execute(run, start)
         except (ReplayError, SurfaceError, PolicyError) as exc:
             failure = to_failure(exc, run.step_id)
+        if run.evidence is not None:
+            run.evidence.failure(snapshot(run.session))
         if escalator is None or not escalates(failure.kind):
             return _result(run, None, failure)
         record, resume = handoff(
-            capability, run.session, failure, escalator, run_id, evidence_dir, len(run.interventions)
+            run.capability,
+            run.session,
+            failure,
+            escalator,
+            run.run_id,
+            evidence_dir,
+            len(run.interventions),
         )
         run.interventions.append(record)
         if resume is None:
@@ -176,6 +199,8 @@ def _run_step(step: Step, run: _Run) -> Observation:
         )
         run.traces.append(trace)
         run.session.log.emit("step_completed", **trace.model_dump())
+        if run.evidence is not None:
+            run.evidence.step(step.step_id, observation, run.session)
         return observation
 
 
@@ -250,15 +275,19 @@ def _result(run: _Run, outcome: OutcomeSpec | None, failure: Failure | None) -> 
             update={"expected": redact(failure.expected), "observed": redact(failure.observed)}
         )
         log.emit("run_finished", status="failed", outcome=None, failure_kind=failure.kind.value)
-        return ReplayResult(
-            capability_id=capability.capability_id,
-            version=capability.version,
-            status=ReplayStatus.failed,
-            outcome=None,
-            outputs={},
-            steps=run.traces,
-            interventions=run.interventions,
-            failure=failure,
+        return _record(
+            run,
+            ReplayResult(
+                run_id=run.run_id,
+                capability_id=capability.capability_id,
+                version=capability.version,
+                status=ReplayStatus.failed,
+                outcome=None,
+                outputs={},
+                steps=run.traces,
+                interventions=run.interventions,
+                failure=failure,
+            ),
         )
     unread = [name for name in outcome.binds if name not in run.outputs]
     if unread:
@@ -271,13 +300,23 @@ def _result(run: _Run, outcome: OutcomeSpec | None, failure: Failure | None) -> 
         ReplayStatus.success if outcome.kind is OutcomeKind.success else ReplayStatus.business_outcome
     )
     log.emit("run_finished", status=status.value, outcome=outcome.name, failure_kind=None)
-    return ReplayResult(
-        capability_id=capability.capability_id,
-        version=capability.version,
-        status=status,
-        outcome=outcome.name,
-        outputs={name: run.outputs[name] for name in outcome.binds},
-        steps=run.traces,
-        interventions=run.interventions,
-        failure=None,
+    return _record(
+        run,
+        ReplayResult(
+            run_id=run.run_id,
+            capability_id=capability.capability_id,
+            version=capability.version,
+            status=status,
+            outcome=outcome.name,
+            outputs={name: run.outputs[name] for name in outcome.binds},
+            steps=run.traces,
+            interventions=run.interventions,
+            failure=None,
+        ),
     )
+
+
+def _record(run: _Run, result: ReplayResult) -> ReplayResult:
+    if run.evidence is not None:
+        run.evidence.result(result)
+    return result

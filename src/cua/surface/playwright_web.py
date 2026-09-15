@@ -42,7 +42,13 @@ from .graph import ElementNode, Observation
 
 TAG = "data-cua-node"
 _SKIPPED_ROLES = {"InlineTextBox"}
-_ELEMENT_NODE = 1  # DOM Node.ELEMENT_NODE
+_CARRIER = """function () {
+  let node = this.nodeType === Node.ELEMENT_NODE ? this : this.parentElement;
+  for (let root = node.getRootNode(); root instanceof ShadowRoot; root = node.getRootNode()) {
+    node = root.host;
+  }
+  return node;
+}"""
 
 
 class PlaywrightWebSurface:
@@ -272,19 +278,15 @@ class PlaywrightWebSurface:
 
     def _element_id(self, backend_id: int) -> int:
         """The DOM node id of the element that carries this AX node. A `StaticText`
-        is a DOM text node, which cannot hold an attribute; its parent element is
-        what bounds it on screen."""
+        is a DOM text node, which cannot hold an attribute; and a text node inside
+        a control's user-agent shadow tree (the typed value of an `<input>`) cannot
+        be edited at all, so the walk climbs out of shadow trees to the host. The
+        result bounds the AX node on screen, wider than it, never narrower."""
         # Node ids are only valid against a requested document; each navigation is a
         # new document, so request it every time rather than track it.
         self.cdp.send("DOM.getDocument", {"depth": 0})
-        described = self.cdp.send("DOM.describeNode", {"backendNodeId": backend_id})["node"]
-        if described["nodeType"] == _ELEMENT_NODE:
-            return self.cdp.send(
-                "DOM.pushNodesByBackendIdsToFrontend", {"backendNodeIds": [backend_id]}
-            )["nodeIds"][0]
-        text = self.cdp.send("DOM.resolveNode", {"backendNodeId": backend_id})["object"]["objectId"]
-        parent = self.cdp.send(
-            "Runtime.callFunctionOn",
-            {"objectId": text, "functionDeclaration": "function () { return this.parentElement; }"},
+        target = self.cdp.send("DOM.resolveNode", {"backendNodeId": backend_id})["object"]["objectId"]
+        carrier = self.cdp.send(
+            "Runtime.callFunctionOn", {"objectId": target, "functionDeclaration": _CARRIER}
         )["result"]["objectId"]
-        return self.cdp.send("DOM.requestNode", {"objectId": parent})["nodeId"]
+        return self.cdp.send("DOM.requestNode", {"objectId": carrier})["nodeId"]

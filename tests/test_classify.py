@@ -111,7 +111,7 @@ def test_interstitial_failure_takes_its_kind_from_the_profile() -> None:
 
 
 def test_result_shape_is_enforced() -> None:
-    base = dict(capability_id="c", version="1", outputs={}, steps=[], interventions=[])
+    base = dict(run_id="r", capability_id="c", version="1", outputs={}, steps=[], interventions=[])
     ReplayResult(status=ReplayStatus.success, outcome="found", failure=None, **base)
     with pytest.raises(ValidationError, match="imply each other"):
         ReplayResult(status=ReplayStatus.failed, outcome="found", failure=None, **base)
