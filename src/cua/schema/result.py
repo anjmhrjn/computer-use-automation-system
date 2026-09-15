@@ -5,31 +5,16 @@ from enum import Enum
 from pydantic import model_validator
 
 from .common import StrictModel
+from .failure import Failure, FailureKind
+from .intervention import InterventionRecord
+
+__all__ = ["Failure", "FailureKind", "Recovery", "ReplayResult", "ReplayStatus", "StepTrace"]
 
 
 class ReplayStatus(str, Enum):
     success = "success"
     business_outcome = "business_outcome"
     failed = "failed"
-
-
-class FailureKind(str, Enum):
-    session_expired = "session_expired"
-    permission_denied = "permission_denied"
-    interstitial_persisted = "interstitial_persisted"
-    timeout = "timeout"
-    target_drift = "target_drift"
-    checkpoint_failed = "checkpoint_failed"
-    surface_error = "surface_error"
-    policy_denied = "policy_denied"
-    approval_required = "approval_required"
-
-
-class Failure(StrictModel):
-    kind: FailureKind
-    step_id: str
-    expected: str
-    observed: str
 
 
 class Recovery(StrictModel):
@@ -50,7 +35,8 @@ class StepTrace(StrictModel):
 class ReplayResult(StrictModel):
     """What a replay run answered. `outputs` holds only the values the fired outcome
     binds, so a business outcome with `binds: []` returns an empty mapping even if
-    earlier steps had read something."""
+    earlier steps had read something. `interventions` lists every human handoff in
+    order; a run that was resumed after one still reports its outcome normally."""
 
     capability_id: str
     version: str
@@ -58,6 +44,7 @@ class ReplayResult(StrictModel):
     outcome: str | None
     outputs: dict[str, str]
     steps: list[StepTrace]
+    interventions: list[InterventionRecord]
     failure: Failure | None
 
     @model_validator(mode="after")

@@ -22,6 +22,12 @@ from .common import (
     ValueType,
 )
 from .export import capability_json_schema, dumps
+from .intervention import (
+    InterventionRecord,
+    InterventionRequest,
+    Resolution,
+    ResolutionKind,
+)
 from .predicate import (
     ElementAbsent,
     ElementPresent,
@@ -54,6 +60,8 @@ __all__ = [
     "Failure",
     "FailureKind",
     "Interstitial",
+    "InterventionRecord",
+    "InterventionRequest",
     "LiteralValue",
     "LocationMatches",
     "NameMatch",
@@ -69,6 +77,8 @@ __all__ = [
     "Recovery",
     "ReplayResult",
     "ReplayStatus",
+    "Resolution",
+    "ResolutionKind",
     "RiskClass",
     "SelectOption",
     "Sensitivity",

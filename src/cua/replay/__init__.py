@@ -1,4 +1,4 @@
-from .classify import screen, to_failure
+from .classify import ESCALATES, TERMINAL, escalates, screen, to_failure
 from .engine import MAX_DISMISSALS, replay
 from .errors import (
     CheckpointFailed,
@@ -14,7 +14,9 @@ from .session import Session
 from .wait import await_predicate, screened, summarize
 
 __all__ = [
+    "ESCALATES",
     "MAX_DISMISSALS",
+    "TERMINAL",
     "CheckpointFailed",
     "EventLog",
     "InterstitialDetected",
@@ -25,6 +27,7 @@ __all__ = [
     "TargetUnresolved",
     "await_predicate",
     "describe",
+    "escalates",
     "holds",
     "replay",
     "screen",

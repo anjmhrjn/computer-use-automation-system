@@ -42,6 +42,7 @@ from .graph import ElementNode, Observation
 
 TAG = "data-cua-node"
 _SKIPPED_ROLES = {"InlineTextBox"}
+_ELEMENT_NODE = 1  # DOM Node.ELEMENT_NODE
 
 
 class PlaywrightWebSurface:
@@ -239,22 +240,51 @@ class PlaywrightWebSurface:
             ) from exc
         return None
 
+    # -- capture -----------------------------------------------------------------
+
+    def capture(self, mask: list[ElementNode]) -> bytes:
+        for node in mask:
+            if node.node_id not in self._handles:
+                raise StaleNode(node)
+        # `_locate` raises StaleNode for a node gone from the document, so a mask
+        # is complete or the capture does not happen.
+        locators = [self._locate(node) for node in mask]
+        try:
+            return self.page.screenshot(
+                full_page=True, mask=locators, timeout=self._ready_timeout_ms
+            )
+        except PlaywrightTimeout as exc:
+            raise SurfaceNotReady(f"capture not completed within {self._ready_timeout_ms}ms") from exc
+
     def _locate(self, node: ElementNode) -> Locator:
         """Stamp a one-off tag on the node so Playwright can drive it. The tag is
         an internal handle on a node the AX resolver already chose; it never leaves
         this adapter."""
         tag = uuid.uuid4().hex
-        # Node ids are only valid against a requested document; each navigation is a
-        # new document, so request it every time rather than track it.
-        self.cdp.send("DOM.getDocument", {"depth": 0})
-        node_ids = self.cdp.send(
-            "DOM.pushNodesByBackendIdsToFrontend",
-            {"backendNodeIds": [self._handles[node.node_id]]},
-        )["nodeIds"]
-        self.cdp.send("DOM.setAttributeValue", {"nodeId": node_ids[0], "name": TAG, "value": tag})
+        node_id = self._element_id(self._handles[node.node_id])
+        self.cdp.send("DOM.setAttributeValue", {"nodeId": node_id, "name": TAG, "value": tag})
         for frame in self.page.frames:
             locator = frame.locator(f'[{TAG}="{tag}"]')
             if locator.count() == 1:
                 return locator
         # Observed, but gone from the document since: the page moved under us.
         raise StaleNode(node)
+
+    def _element_id(self, backend_id: int) -> int:
+        """The DOM node id of the element that carries this AX node. A `StaticText`
+        is a DOM text node, which cannot hold an attribute; its parent element is
+        what bounds it on screen."""
+        # Node ids are only valid against a requested document; each navigation is a
+        # new document, so request it every time rather than track it.
+        self.cdp.send("DOM.getDocument", {"depth": 0})
+        described = self.cdp.send("DOM.describeNode", {"backendNodeId": backend_id})["node"]
+        if described["nodeType"] == _ELEMENT_NODE:
+            return self.cdp.send(
+                "DOM.pushNodesByBackendIdsToFrontend", {"backendNodeIds": [backend_id]}
+            )["nodeIds"][0]
+        text = self.cdp.send("DOM.resolveNode", {"backendNodeId": backend_id})["object"]["objectId"]
+        parent = self.cdp.send(
+            "Runtime.callFunctionOn",
+            {"objectId": text, "functionDeclaration": "function () { return this.parentElement; }"},
+        )["result"]["objectId"]
+        return self.cdp.send("DOM.requestNode", {"objectId": parent})["nodeId"]

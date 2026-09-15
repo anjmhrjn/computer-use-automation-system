@@ -28,7 +28,7 @@ src/
     compiler/      transcript -> Capability
     policy/        Allowlist, risk classes, redactor
     escalation/    Control token, intervention requests, resume
-    console/       FastAPI mock operator console
+    console/       stdlib mock operator console (`cua serve`)
     cli.py         discover | replay | serve
 app/             MemberServe 3.1 + variant-b (Flask). Scaffolding, not a deliverable.
 artifacts/       Saved capabilities (JSON), per-app profiles (apps/<app_id>.json), tenant overlays
@@ -77,6 +77,7 @@ uv run cua discover --from-transcript evidence/<run_id>/transcript.jsonl --param
 uv run cua compile evidence/<success_run>/transcript.jsonl evidence/<business_run>/transcript.jsonl   # -> artifacts/<capability_id>.json
 uv run cua replay artifacts/<capability>.json --param member_id=12345
 uv run cua serve                               # mock operator console at :8000
+uv run cua replay artifacts/<capability>.json --param member_id=12345 --console http://127.0.0.1:8000   # hand off escalating failures
 ```
 
 ## Code conventions
@@ -111,7 +112,7 @@ Schema first, and replay before discovery — if replay works on a hand-authored
 | 6 | Policy/allowlist + redactor through the action chokepoint | done |
 | 7 | Discovery loop + `--from-transcript` fixture mode | done |
 | 8 | Compile step: transcript -> Capability. `cua compile` merges a success run with prefix-compatible business-outcome runs; compiled artifact replays both branches | done |
-| 9 | Escalation: control token, intervention request, console, resume. Human actions recorded as before/after AX diff + screenshots + operator note | todo |
+| 9 | Escalation: control token, intervention request, console, resume. Human actions recorded as before/after AX diff + masked screenshots + operator note. Environment-blocked failures escalate; artifact/guardrail failures never do | done |
 | 10 | Evidence: discovery, clean replay, business-outcome replay, hard-failure replay | todo |
 | 11 | README, tests, REPORT.md | todo |
 | 12 | Stretch: variant-b via tenant overlay | todo |

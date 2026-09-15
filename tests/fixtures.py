@@ -48,18 +48,28 @@ class ScriptedSurface:
 
     def __init__(self, final: Observation | None = None) -> None:
         self.acted: list[tuple[SurfaceAction, str | None]] = []
+        self.captured: list[list[str]] = []
         self.observed = 0
         self._typed = ""
         self._final = final if final is not None else record_frame()
+        # A page that replaces whatever the script would serve, until a human
+        # (the test's escalator) clears it. Set by tests of the handoff.
+        self.override: Observation | None = None
 
     def observe(self) -> Observation:
         self.observed += 1
+        if self.override is not None:
+            return self.override
         kinds = [type(a) for a, _ in self.acted]
         if kinds.count(Navigate) == 0:
             return Observation(location="/", nodes=[])
         if not any(k.__name__ == "Click" for k in kinds):
             return with_value(search_page(), "box", self._typed)
         return self._final
+
+    def capture(self, mask: list[ElementNode]) -> bytes:
+        self.captured.append([n.node_id for n in mask])
+        return b"\x89PNG"
 
     def act(self, action: SurfaceAction, node: ElementNode | None) -> str | None:
         self.acted.append((action, node.node_id if node else None))

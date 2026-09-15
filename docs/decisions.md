@@ -528,3 +528,79 @@ interface to agree, not the prose.** The committed runs named the capability
 with different descriptions and the same inputs and outputs. The success run's name
 and description are the artifact's; the business runs must match on input and output
 names and types only.
+
+## Item 9 — Escalation: control token, intervention request, console, resume
+
+**What escalates is decided by who can fix it, not by severity.** A failure hands
+off to a human only when the *environment* blocked a correct artifact: `session_expired`,
+`interstitial_persisted`, `timeout`, `approval_required` (a guardrail whose whole
+meaning is "ask a human"), and `permission_denied`. The last one escalates for a
+decision, not a fix — the operator can only abort, with a note — because a clean
+terminal failure would hide the one case a supervisor should look at. `target_drift`,
+`checkpoint_failed` and `surface_error` never escalate: an operator cannot repair an
+artifact or an adapter, and a human clicking the right control is the `continue`
+semantic rejected below. `policy_denied` never escalates on principle: an escalation
+path past the allowlist is a bypass path. "Every failure escalates, the operator can
+always abort" was the first draft and was rejected because it drags an operator into
+failures that are the artifact owner's, and because it would make the allowlist
+overridable at runtime. The table lives in `replay/classify.py` beside the failure
+taxonomy, and a test requires every `FailureKind` to be placed in it explicitly.
+
+**The operator resumes from a step they name; there is no `continue`.** A resolution
+is `retry` from any step up to and including the failed one, `approve` (re-run the
+failed step with a one-step risky approval; valid only for `approval_required`), or
+`abort` (the run fails with its *original* failure kind plus the intervention record —
+no new kind). Retrying only the failed step was rejected because a session that
+expires mid-form leaves the operator unable to re-fill a value they are deliberately
+not shown; resuming from `open_search` is the honest recovery. `continue` — the human
+performed the step, resume at the next — was rejected: a skipped read leaves an output
+unbound, MemberServe has no write to exercise it, and it is the risky-write branch
+item 2 chose to describe rather than build. Every re-run step proves its postcondition
+again; traces from re-run steps are appended, not replaced, so the result shows the
+detour. Operator input is untrusted: an unknown `resume_from`, or `approve` on the
+wrong failure kind, is `EscalationError`, a caller error like `MissingParameter`.
+
+**The console is stdlib, out of process, and the wait is a held HTTP request.**
+`cua serve` is a `ThreadingHTTPServer` with three JSON routes and two HTML pages; a
+paused replay POSTs its request and then GETs the resolution, which the server holds
+open on a `threading.Event` until the operator submits the form. No sleep, no file
+polling (invariant 2), and the run blocks for exactly as long as the human holds the
+browser. FastAPI + uvicorn, named in the stack table, was rejected as two runtime
+dependencies for three routes; an in-process console thread was rejected because it
+dies with the run and leaves no `serve` command. The console shows only what the
+request carries, and the request carries only redacted failure text, the redacted
+location, and parameter *names* — which the end-to-end run enforced the hard way: the
+first version leaked `/member/20001` as the location, and the location is now
+redacted where the failure text is, before the request leaves the process.
+
+**Screenshots are masked by the redactor's rule, which resolves item 9 against
+invariant 7.** Pixel evidence cannot pass through a text redactor, and a member record
+on screen is PII that evidence readers — not just the operator, who already sees the
+window — would otherwise receive. Three options were weighed: raw PNGs with a
+documented carve-out (rejected: evidence is read by people with fewer privileges than
+the operator, and the reviewer-versus-operator argument is exactly what the redactor
+exists for), AX diff only (correct but drops the deliverable), and masking. The port
+gains `capture(mask)`: the escalation handler passes every node whose name, value,
+label or text the run's redactor would rewrite — innermost only, so a container's
+subtree text never masks the page — and the adapter paints over each or raises, never
+returning a partial image. Coverage therefore equals the AX tree's, on every surface;
+a desktop adapter masks by the node bounds its accessibility API already exposes.
+Learned in the live run: a `StaticText` is a DOM text node and cannot carry the tag
+attribute, so the adapter tags the parent element — the mask is wider than the value,
+never narrower — and the same fix covers a click aimed at a text node.
+
+**The control token is a programming guard, not a failure kind.** `Session.token`
+is checked first in `act()`, before the policy. A violation raises `ControlHeld`
+(a `RuntimeError`) and is not classified, because the engine is blocked inside
+`escalator.request()` for as long as a human holds the token; anything reaching the
+check while it does is a bug, and a bug should not come back as a tidy result.
+`observe()` and `capture()` are not gated, so the handoff can record the after-state.
+
+**Replay gets an evidence directory only for handoffs; the rest is item 10.**
+`evidence/<run_id>/interventions/<n>/` holds the redacted before/after snapshots, the
+node diff, the resolution with the operator's note, and the two masked PNGs. A side
+the surface could not observe — the page is exactly as hung as a `timeout` says — is
+written as `<side>.unobservable`, not skipped. `events.jsonl` and `result.json` for
+replay are not written here; item 10 owns the shape of replay evidence and this item
+does not scaffold it. Discovery keeps halting on interstitials and risky turns
+(item 7); escalating discovery is out of scope.

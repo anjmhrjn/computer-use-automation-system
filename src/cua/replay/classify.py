@@ -26,6 +26,38 @@ def screen(observation: Observation, profile: AppProfile, session: Session) -> I
     return None
 
 
+# Escalate when the environment blocked a correct artifact (a human can change the
+# environment), never when the artifact, the system, or a guardrail stopped the run:
+# an operator cannot fix drift, and an escalation path past `policy_denied` would be
+# a bypass path. `permission_denied` escalates for a decision (abort, with a note),
+# not a fix.
+ESCALATES: frozenset[FailureKind] = frozenset(
+    {
+        FailureKind.session_expired,
+        FailureKind.approval_required,
+        FailureKind.interstitial_persisted,
+        FailureKind.timeout,
+        FailureKind.permission_denied,
+    }
+)
+TERMINAL: frozenset[FailureKind] = frozenset(
+    {
+        FailureKind.target_drift,
+        FailureKind.checkpoint_failed,
+        FailureKind.surface_error,
+        FailureKind.policy_denied,
+    }
+)
+
+
+def escalates(kind: FailureKind) -> bool:
+    if kind in ESCALATES:
+        return True
+    if kind in TERMINAL:
+        return False
+    raise TypeError(f"failure kind {kind.value!r} is not placed in the escalation table")
+
+
 def to_failure(exc: ReplayError | SurfaceError | PolicyError, step_id: str) -> Failure:
     if isinstance(exc, InterstitialDetected):
         kind = exc.interstitial.failure_kind

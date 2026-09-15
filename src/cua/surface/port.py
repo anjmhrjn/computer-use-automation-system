@@ -12,9 +12,12 @@ class Surface(Protocol):
     `observe` is a snapshot, not a wait; waiting for a state predicate is the caller's
     loop. `act` performs exactly one action: `Navigate` takes no node, everything
     else takes a node from the *latest* observation. Returns the text for `ReadText`,
-    `None` otherwise.
+    `None` otherwise. `capture` returns a PNG of the surface with every node in
+    `mask` painted over; a node it cannot cover is an error, never a partial image.
     """
 
     def observe(self) -> Observation: ...
 
     def act(self, action: SurfaceAction, node: ElementNode | None) -> str | None: ...
+
+    def capture(self, mask: list[ElementNode]) -> bytes: ...

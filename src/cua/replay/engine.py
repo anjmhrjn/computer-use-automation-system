@@ -12,23 +12,32 @@ page from before the action. The success outcome is checked only after the last
 step and the checkpoint, because it binds outputs that do not exist earlier.
 
 Failures never raise out of `replay()`; they come back classified on the result.
-The one exception is `MissingParameter`, a caller error raised before the run.
-Every string that leaves as a failure or an event passes the run's redactor
-(invariant 6); outputs do not, they are the answer the caller asked for.
+The exceptions are caller errors: `MissingParameter`, raised before the run, and
+`EscalationError`, when the console the caller named cannot be reached or answers
+with something that is not a resolution. Every string that leaves as a failure or
+an event passes the run's redactor (invariant 6); outputs do not, they are the
+answer the caller asked for.
+
+With an escalator, a failure whose kind escalates (`classify.ESCALATES`) becomes a
+human handoff instead of a result; the run resumes from the step the operator
+names, and every step from there proves its postcondition again.
 """
 
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TextIO
 
 from cua import schema
+from cua.escalation import Escalator
 from cua.policy import Policy, PolicyError, Redactor
 from cua.schema import (
     AppProfile,
     Capability,
     Failure,
+    InterventionRecord,
     OutcomeKind,
     OutcomeSpec,
     Recovery,
@@ -52,7 +61,7 @@ from cua.surface import (
     resolve,
 )
 
-from .classify import screen, to_failure
+from .classify import escalates, screen, to_failure
 from .errors import (
     CheckpointFailed,
     InterstitialDetected,
@@ -61,6 +70,7 @@ from .errors import (
     TargetUnresolved,
 )
 from .events import EventLog
+from .handoff import handoff, new_run_id
 from .predicates import describe, holds
 from .session import Session
 from .wait import await_predicate, screened, summarize
@@ -75,6 +85,7 @@ class _Run:
     session: Session
     outputs: dict[str, str] = field(default_factory=dict)
     traces: list[StepTrace] = field(default_factory=list)
+    interventions: list[InterventionRecord] = field(default_factory=list)
 
     @property
     def step_id(self) -> str:
@@ -89,6 +100,8 @@ def replay(
     *,
     approve_risky: bool = False,
     log_stream: TextIO | None = None,
+    escalator: Escalator | None = None,
+    evidence_dir: Path | None = None,
 ) -> ReplayResult:
     _check_params(capability, params)
     if profile.app_id != capability.target.app_id:
@@ -98,18 +111,30 @@ def replay(
     log = EventLog(log_stream, Redactor.for_run(capability, params))
     policy = Policy(tuple(profile.allowed_locations), approve_risky)
     run = _Run(capability, profile, Session(surface, params, policy, log))
-    try:
-        return _execute(run)
-    except (ReplayError, SurfaceError, PolicyError) as exc:
-        return _result(run, None, to_failure(exc, run.step_id))
+    run_id = new_run_id()
+    start = 0
+    while True:
+        try:
+            return _execute(run, start)
+        except (ReplayError, SurfaceError, PolicyError) as exc:
+            failure = to_failure(exc, run.step_id)
+        if escalator is None or not escalates(failure.kind):
+            return _result(run, None, failure)
+        record, resume = handoff(
+            capability, run.session, failure, escalator, run_id, evidence_dir, len(run.interventions)
+        )
+        run.interventions.append(record)
+        if resume is None:
+            return _result(run, None, failure)
+        start = resume
 
 
-def _execute(run: _Run) -> ReplayResult:
+def _execute(run: _Run, start: int) -> ReplayResult:
     capability = run.capability
     business = [o for o in capability.outcomes if o.kind is OutcomeKind.business]
     success = next(o for o in capability.outcomes if o.kind is OutcomeKind.success)
 
-    for step in capability.steps:
+    for step in capability.steps[start:]:
         run.session.step_id = step.step_id
         observation = _run_step(step, run)
         for outcome in business:
@@ -232,6 +257,7 @@ def _result(run: _Run, outcome: OutcomeSpec | None, failure: Failure | None) -> 
             outcome=None,
             outputs={},
             steps=run.traces,
+            interventions=run.interventions,
             failure=failure,
         )
     unread = [name for name in outcome.binds if name not in run.outputs]
@@ -252,5 +278,6 @@ def _result(run: _Run, outcome: OutcomeSpec | None, failure: Failure | None) -> 
         outcome=outcome.name,
         outputs={name: run.outputs[name] for name in outcome.binds},
         steps=run.traces,
+        interventions=run.interventions,
         failure=None,
     )

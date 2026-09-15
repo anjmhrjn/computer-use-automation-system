@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from cua import schema
+from cua.escalation import write_snapshot
 from cua.policy import ApprovalRequired, PolicyDenied, Redactor
 from cua.replay import InterstitialDetected, PostconditionTimeout, Session, holds, screened, summarize
 from cua.surface import (
@@ -254,8 +255,7 @@ def _check_not_inlined(run: RunState, expect: Expect) -> None:
 
 
 def snapshot_to(run: RunState, name: str, observation: Observation) -> str:
-    path = run.run_dir / name
-    path.write_text(run.redactor.redact(observation.model_dump_json(indent=1)) + "\n")
+    write_snapshot(run.run_dir / name, observation, run.redactor)
     return name
 
 

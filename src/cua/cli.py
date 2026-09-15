@@ -16,6 +16,7 @@ from .discovery import (
     discover,
     read,
 )
+from .escalation import ConsoleClient, EscalationError
 from .policy import Redactor
 from .replay import MissingParameter, replay
 from .schema import AppProfile, Capability, ReplayStatus, dumps
@@ -23,6 +24,7 @@ from .surface import PlaywrightWebSurface
 
 DEFAULT_TARGET = "http://127.0.0.1:5000"
 DEFAULT_APP = "memberserve"
+DEFAULT_CONSOLE_PORT = 8000
 ARTIFACTS_DIR = Path("artifacts")
 EVIDENCE_DIR = Path("evidence")
 
@@ -122,31 +124,44 @@ def _parse_params(pairs: list[str]) -> dict[str, str] | None:
     return params
 
 
-def _replay(path: Path, pairs: list[str], target: str, approve_risky: bool) -> int:
-    capability = _load(path)
-    params = _parse_params(pairs)
+def _replay(args: argparse.Namespace) -> int:
+    capability = _load(args.path)
+    params = _parse_params(args.param)
     if capability is None or params is None:
         return 2
-    profile = _load_profile(path.resolve().parent, capability.target.app_id)
+    profile = _load_profile(args.path.resolve().parent, capability.target.app_id)
     if profile is None:
         return 2
+    escalator = None if args.console is None else ConsoleClient(args.console)
 
     try:
-        with PlaywrightWebSurface(target) as surface:
+        with PlaywrightWebSurface(args.target) as surface:
             result = replay(
                 capability,
                 params,
                 surface,
                 profile,
-                approve_risky=approve_risky,
+                approve_risky=args.approve_risky,
                 log_stream=sys.stderr,
+                escalator=escalator,
+                evidence_dir=args.evidence_dir,
             )
     except MissingParameter as exc:
         print(f"error  {exc.expected}; {exc.observed}", file=sys.stderr)
         return 2
+    except EscalationError as exc:
+        print(f"error  {exc}", file=sys.stderr)
+        return 2
 
     print(result.model_dump_json(indent=2))
     return 1 if result.status is ReplayStatus.failed else 0
+
+
+def _serve(host: str, port: int) -> int:
+    from .console import serve
+
+    serve(host, port, lambda url: print(f"console  {url}", file=sys.stderr))
+    return 0
 
 
 def _discover(args: argparse.Namespace) -> int:
@@ -215,6 +230,18 @@ def app() -> int:
         action="store_true",
         help="allow risky-class steps to execute; without it they halt the run",
     )
+    run.add_argument(
+        "--console",
+        metavar="URL",
+        help="operator console to hand off to on an escalating failure; without it the run fails",
+    )
+    run.add_argument(
+        "--evidence-dir", type=Path, default=EVIDENCE_DIR, help="where intervention evidence goes"
+    )
+
+    console = subparsers.add_parser("serve", help="run the mock operator console")
+    console.add_argument("--host", default="127.0.0.1")
+    console.add_argument("--port", type=int, default=DEFAULT_CONSOLE_PORT)
 
     find = subparsers.add_parser(
         "discover", help="let the model work out how to accomplish a goal against a live app"
@@ -259,7 +286,9 @@ def app() -> int:
     if args.command == "validate":
         return _validate(args.path)
     if args.command == "replay":
-        return _replay(args.path, args.param, args.target, args.approve_risky)
+        return _replay(args)
+    if args.command == "serve":
+        return _serve(args.host, args.port)
     sys.stdout.write(dumps())
     return 0
 
