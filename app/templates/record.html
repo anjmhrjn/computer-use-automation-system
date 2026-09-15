@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ L.record_heading }}</title>
+<style>
+  body { font-family: Verdana, Arial, sans-serif; font-size: 12px; margin: 8px; background: #fff; }
+  fieldset { border: 1px inset #808080; margin-top: 8px; }
+  dt { font-weight: bold; margin-top: 6px; } dd { margin: 0 0 4px 0; }
+</style>
+</head>
+<body>
+<h1 style="font-size:14px">{{ L.record_heading }} &mdash; #{{ member.member_id }}</h1>
+<table cellpadding="2" cellspacing="0" border="0">
+  <tr><td><b>Name</b></td><td>{{ member.name }}</td></tr>
+  <tr><td><b>Member</b></td><td>{{ member.member_id }}</td></tr>
+</table>
+{% set legend = ctl() %}
+<fieldset role="group" aria-labelledby="{{ legend }}" id="{{ ctl() }}">
+  <legend id="{{ legend }}">{{ L.coverage_group }}</legend>
+  <dl id="{{ ctl() }}">
+    <dt>{{ L.plan_status }}</dt><dd>{{ member.plan_status }}</dd>
+    <dt>{{ L.renewal_date }}</dt><dd>{{ member.renewal_date }}</dd>
+  </dl>
+</fieldset>
+</body>
+</html>

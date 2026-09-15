@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>{{ L.search_lead }}</h2>
+<table cellpadding="4" cellspacing="0" border="0"><tr><td>
+<form method="post" action="{{ url_for('submit_search') }}" aria-label="{{ L.search_form }}" id="{{ ctl() }}">
+  <table cellpadding="2" cellspacing="0" border="0">
+    <tr>
+      {% set field = ctl() %}
+      <td><label for="{{ field }}">{{ L.member_id }}</label></td>
+      <td><input type="text" name="member_id" id="{{ field }}" size="12" maxlength="10" autocomplete="off"></td>
+      <td><button type="submit" id="{{ ctl() }}">{{ L.search_button }}</button></td>
+    </tr>
+    {% if error %}<tr><td colspan="3" class="err" role="alert">{{ error }}</td></tr>{% endif %}
+  </table>
+</form>
+</td></tr></table>
+{% endblock %}

@@ -1,0 +1,7 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>Access denied</h2>
+<p role="alert" class="err">You do not have permission to view this record.</p>
+<p>Reference: {{ member_id }}. Contact your supervisor to request access.</p>
+<p><a href="{{ url_for('search') }}">&laquo; New search</a></p>
+{% endblock %}

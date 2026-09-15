@@ -1,0 +1,14 @@
+[
+  {"member_id": "10001", "name": "Test Member Alpha",   "plan_status": "Active",    "renewal_date": "2027-01-15", "restricted": false},
+  {"member_id": "10002", "name": "Test Member Bravo",   "plan_status": "Lapsed",    "renewal_date": "2026-03-31", "restricted": false},
+  {"member_id": "10003", "name": "Test Member Charlie", "plan_status": "Suspended", "renewal_date": "2026-11-01", "restricted": false},
+  {"member_id": "10004", "name": "Test Member Delta",   "plan_status": "Active",    "renewal_date": "2027-06-30", "restricted": false},
+  {"member_id": "10005", "name": "Test Member Echo",    "plan_status": "Active",    "renewal_date": "2026-12-12", "restricted": false},
+  {"member_id": "10006", "name": "Test Member Foxtrot", "plan_status": "Lapsed",    "renewal_date": "2025-09-01", "restricted": false},
+  {"member_id": "10007", "name": "Test Member Golf",    "plan_status": "Active",    "renewal_date": "2027-02-28", "restricted": false},
+  {"member_id": "10008", "name": "Test Member Hotel",   "plan_status": "Suspended", "renewal_date": "2026-10-10", "restricted": false},
+  {"member_id": "10009", "name": "Test Member India",   "plan_status": "Active",    "renewal_date": "2027-04-01", "restricted": false},
+  {"member_id": "10010", "name": "Test Member Juliet",  "plan_status": "Active",    "renewal_date": "2026-12-31", "restricted": false},
+  {"member_id": "10011", "name": "Test Member Kilo",    "plan_status": "Lapsed",    "renewal_date": "2026-01-01", "restricted": false},
+  {"member_id": "20001", "name": "Test Member Restricted", "plan_status": "Active", "renewal_date": "2027-08-08", "restricted": true}
+]

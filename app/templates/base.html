@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}{{ L.app_name }}{% endblock %}</title>
+<style>
+  body { font-family: Verdana, Arial, sans-serif; font-size: 12px; background: #d4d0c8; margin: 0; }
+  table.chrome { width: 100%; border-collapse: collapse; }
+  td.banner { background: #000080; color: #fff; padding: 6px 10px; font-weight: bold; }
+  td.nav { background: #c0c0c0; border-bottom: 1px solid #808080; padding: 4px 10px; }
+  td.body { background: #fff; padding: 12px; vertical-align: top; }
+  td.side { background: #ece9d8; width: 160px; border-right: 1px solid #808080; padding: 8px; vertical-align: top; }
+  input, button { font-size: 12px; font-family: inherit; }
+  fieldset { border: 1px inset #808080; }
+  dt { font-weight: bold; margin-top: 6px; } dd { margin: 0 0 4px 0; }
+  .err { color: #b00; }
+</style>
+</head>
+<body>
+<table class="chrome" cellpadding="0" cellspacing="0" border="0">
+  <tr><td class="banner" colspan="2">{{ L.app_name }} &mdash; Member Services Console</td></tr>
+  <tr><td class="nav" colspan="2">
+    <table cellpadding="0" cellspacing="0" border="0"><tr>
+      <td><a href="{{ url_for('search') }}">Members</a>&nbsp;|&nbsp;<a href="#">Claims</a>&nbsp;|&nbsp;<a href="#">Reports</a></td>
+      <td style="padding-left:40px">
+        <!-- Site-wide search: a second "Search" button on every page. -->
+        <form method="get" action="#" aria-label="Site search" id="{{ ctl() }}">
+          <input type="text" name="q" aria-label="Site search terms" id="{{ ctl() }}">
+          <button type="submit" id="{{ ctl() }}">Search</button>
+        </form>
+      </td>
+    </tr></table>
+  </td></tr>
+  <tr>
+    <td class="side">
+      <table cellpadding="2" cellspacing="0" border="0">
+        <tr><td><b>Quick links</b></td></tr>
+        <tr><td><a href="{{ url_for('search') }}">Member search</a></td></tr>
+        <tr><td><a href="#">Eligibility</a></td></tr>
+        <tr><td><a href="#">Correspondence</a></td></tr>
+      </table>
+    </td>
+    <td class="body">{% block body %}{% endblock %}</td>
+  </tr>
+  <tr><td class="nav" colspan="2" style="font-size:10px">Session {{ ctl() }} &middot; Build 3.1.0417</td></tr>
+</table>
+</body>
+</html>

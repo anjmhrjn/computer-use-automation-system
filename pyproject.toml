@@ -19,6 +19,7 @@ module-name = "cua"
 
 [dependency-groups]
 dev = [
+    "flask>=3",
     "pytest>=8",
 ]
 

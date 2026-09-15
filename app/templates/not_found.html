@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>Member {{ member_id }}</h2>
+<p role="status"><b>No member found</b> for id {{ member_id }}.</p>
+<p><a href="{{ url_for('search') }}">&laquo; New search</a></p>
+{% endblock %}

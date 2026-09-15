@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block body %}
+<h2>Scheduled maintenance</h2>
+<p role="alert">MemberServe will be unavailable Sunday 02:00&ndash;04:00 for scheduled maintenance. Some records may load slowly until then.</p>
+<form method="post" action="{{ url_for('continue_after_notice', next=next) }}" id="{{ ctl() }}">
+  <button type="submit" id="{{ ctl() }}">Continue</button>
+</form>
+{% endblock %}

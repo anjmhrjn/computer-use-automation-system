@@ -72,7 +72,7 @@ uv sync && uv run playwright install chromium
 uv run python -m app.server                    # MemberServe 3.1 at :5000
 uv run python -m app.server --variant b        # tenant variant at :5001
 
-uv run cua discover --goal "<goal>" --target http://localhost:5000
+uv run cua discover --goal "<goal>" --target http://127.0.0.1:5000
 uv run cua discover --from-transcript evidence/<run_id>/transcript.jsonl   # no API key needed
 uv run cua replay artifacts/<capability>.json --param member_id=12345
 uv run cua serve                               # mock operator console at :8000
@@ -103,7 +103,7 @@ Schema first, and replay before discovery — if replay works on a hand-authored
 | # | Item | Status |
 |---|---|---|
 | 1 | Pydantic models + JSON Schema + one hand-written artifact. Artifact carries `schema_version`, `version`, and `target.app_version` | done |
-| 2 | MemberServe 3.1 + seed data + fault injection + variant-b. No real login; session expiry is a fault-injected "session expired" interstitial. One iframe | todo |
+| 2 | MemberServe 3.1 + seed data + fault injection + variant-b. No real login; session expiry is a fault-injected "session expired" interstitial. One iframe | done |
 | 3 | `Surface` port + `PlaywrightWebSurface` + tiered resolver | todo |
 | 4 | Replay engine against the hand-written artifact | todo |
 | 5 | Error taxonomy, detectors, structured replay result | todo |
