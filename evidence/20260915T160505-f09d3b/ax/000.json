@@ -1,0 +1,16 @@
+{
+ "location": "blank",
+ "nodes": [
+  {
+   "node_id": "1:0C7AF465:1",
+   "role": "RootWebArea",
+   "name": "",
+   "value": null,
+   "text": "",
+   "label": null,
+   "frame_path": [],
+   "parent_id": null,
+   "order": 0
+  }
+ ]
+}

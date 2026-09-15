@@ -12,9 +12,10 @@ from .errors import (
 from .graph import ElementNode, Observation
 from .playwright_web import PlaywrightWebSurface
 from .port import Surface
-from .resolver import Resolution, normalize, resolve, within
+from .resolver import NEARBY_WINDOW, Resolution, name_matches, normalize, resolve, within
 
 __all__ = [
+    "NEARBY_WINDOW",
     "ActionNotApplicable",
     "Ambiguous",
     "Click",
@@ -34,6 +35,7 @@ __all__ = [
     "TierTrace",
     "TypeText",
     "Unresolvable",
+    "name_matches",
     "normalize",
     "resolve",
     "within",

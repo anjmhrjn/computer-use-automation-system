@@ -1,0 +1,86 @@
+=== system ===
+You are discovering, one action at a time, how to accomplish a task in a legacy
+web application. You see the page as its accessibility tree: one node per line,
+"[node_id] role name=... label=... value=... text=..." indented by nesting; nodes
+inside an iframe carry frame=[...]. You act by emitting exactly one JSON turn.
+
+Task: lookup_plan_status_and_renewal_date -- Looks up and returns the plan status and renewal date for a given member.
+Inputs (refer to them by name; you never see their values):
+- member_id (string, pii): The identifier of the member whose plan details are to be looked up.
+Outputs to obtain:
+- plan_status (string): The current status of the member's plan.
+- renewal_date (date): The renewal date of the member's plan.
+Locations you may navigate to (patterns): /members/search, /member/*, /continue
+
+Turn kinds:
+- act: one action plus an expectation that becomes true only if the action worked.
+  * navigate: {"kind":"navigate","location":"/path"}; node_id null. Use one of
+    the allowed locations.
+  * click / select_option / type_text / read_text: node_id is a node from the
+    current observation. type_text value is {"kind":"parameter","name":<input>}
+    for an input, or {"kind":"literal","text":...} only for a constant that is
+    part of the procedure. read_text bind_to is one of the declared outputs; it
+    reads the node's text.
+  * expect: "location" (pattern over the location line, e.g. "/member/*") after
+    a navigation or a submit; "value" (node_id of the control you typed into,
+    expected = the same parameter reference) after typing; "element" (role plus
+    accessible_name and/or label of something on the page you expect to be on,
+    with its frame_path -- for read_text, the element you read, e.g. role
+    "definition" with its label) after a click into a new page or a read; "text"
+    only for a fixed message that is part of the application, never for data.
+    An expectation must hold on any future run with different input values:
+    never quote a value you typed or read.
+  * risk: "read_only" for reads and navigation, "reversible" for input that can
+    be undone, "risky" for anything that submits a change you cannot undo.
+- finish: the task is done. outcome_kind "success" when every output has been
+  read; "business" when the page reports a declared answer instead (a "not
+  found", "already exists", "ineligible" style message). detector is an expectation
+  that holds on the current page and distinguishes this outcome; binds lists the
+  outputs that are valid for it (all of them for success, usually none for
+  business). outcome_name is snake_case. The same rule applies: a detector
+  names elements or fixed application text, never a value you read.
+- give_up: you cannot make progress. Say why.
+
+Rules: one action per turn. Read outputs from the node that holds the value (a
+definition, cell, or status field), never from a heading. If a previous turn's
+result was an error, the action did not achieve its expectation: try a different
+action or expectation, do not repeat it unchanged. Never guess node ids.
+
+
+=== assistant ===
+{"kind":"act","intent":"navigate to the member search page to start the lookup process","action":{"kind":"navigate","location":"/members/search"},"node_id":null,"risk":"read_only","expect":{"kind":"location","pattern":"/members/search"}}
+=== user ===
+Result: ok
+
+=== assistant ===
+{"kind":"act","intent":"enter the member id to search for the member","action":{"kind":"type_text","value":{"kind":"parameter","name":"member_id"}},"node_id":"3:CE2FA8B1:23","risk":"reversible","expect":{"kind":"value","node_id":"3:CE2FA8B1:23","expected":{"kind":"parameter","name":"member_id"}}}
+=== user ===
+Result: ok
+
+=== assistant ===
+{"kind":"act","intent":"search for the member using the given member ID","action":{"kind":"click"},"node_id":"5:CE2FA8B1:78","risk":"read_only","expect":{"kind":"location","pattern":"/member/*"}}
+=== user ===
+Result: ok
+
+=== user ===
+Current observation:
+location: /member/<param:member_id>
+[7:CE2FA8B1:103] RootWebArea name='MemberServe 3.1'
+  [7:CE2FA8B1:113] cell name='MemberServe 3.1 — Member Services Console'
+  [7:CE2FA8B1:115] cell name='Members\xa0|\xa0Claims\xa0|\xa0Reports Site search'
+    [7:CE2FA8B1:120] link name='Members'
+    [7:CE2FA8B1:121] link name='Claims'
+    [7:CE2FA8B1:122] link name='Reports'
+    [7:CE2FA8B1:84] form name='Site search'
+      [7:CE2FA8B1:85] textbox name='Site search terms'
+      [7:CE2FA8B1:125] button name='Search'
+  [7:CE2FA8B1:127] cell name='Quick links Member search Eligibility Correspondence'
+    [7:CE2FA8B1:131] LayoutTableCell name='Quick links'
+    [7:CE2FA8B1:135] link name='Member search'
+    [7:CE2FA8B1:138] link name='Eligibility'
+    [7:CE2FA8B1:141] link name='Correspondence'
+  [7:CE2FA8B1:142] cell name='Member <param:member_id> « New search'
+    [7:CE2FA8B1:143] heading name='Member <param:member_id>'
+    [7:CE2FA8B1:144] status text='No member found for id <param:member_id>.'
+    [7:CE2FA8B1:147] link name='« New search'
+  [7:CE2FA8B1:149] cell name='Session ctl_f0bb5fea · Build 3.1.0417'

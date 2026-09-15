@@ -17,6 +17,7 @@ class TierTrace:
 
 def summarize(node: ElementNode) -> dict[str, object]:
     return {
+        "node_id": node.node_id,
         "role": node.role,
         "name": node.name,
         "label": node.label,

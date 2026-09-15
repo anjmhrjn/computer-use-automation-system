@@ -48,7 +48,6 @@ from cua.surface import (
     Surface,
     SurfaceAction,
     SurfaceError,
-    SurfaceNotReady,
     TypeText,
     resolve,
 )
@@ -58,13 +57,13 @@ from .errors import (
     CheckpointFailed,
     InterstitialDetected,
     MissingParameter,
-    PostconditionTimeout,
     ReplayError,
     TargetUnresolved,
 )
 from .events import EventLog
 from .predicates import describe, holds
 from .session import Session
+from .wait import await_predicate, screened, summarize
 
 MAX_DISMISSALS = 2
 
@@ -122,9 +121,9 @@ def _execute(run: _Run) -> ReplayResult:
     if blocking is not None:
         raise InterstitialDetected(run.step_id, blocking, 0)
     if not holds(capability.checkpoint, observation, run.session):
-        raise CheckpointFailed(run.step_id, describe(capability.checkpoint), _summary(observation))
+        raise CheckpointFailed(run.step_id, describe(capability.checkpoint), summarize(observation))
     if not holds(success.detector, observation, run.session):
-        raise CheckpointFailed(run.step_id, describe(success.detector), _summary(observation))
+        raise CheckpointFailed(run.step_id, describe(success.detector), summarize(observation))
     return _result(run, success, None)
 
 
@@ -157,7 +156,7 @@ def _run_step(step: Step, run: _Run) -> Observation:
 
 def _attempt(step: Step, run: _Run, attempts: int) -> tuple[Observation, str | None]:
     session = run.session
-    observation = _screened(session.observe(), step, run, attempts)
+    observation = screened(session.observe(), run.profile, session, attempts)
     node = None
     tier = None
     if step.target is not None:
@@ -171,14 +170,10 @@ def _attempt(step: Step, run: _Run, attempts: int) -> tuple[Observation, str | N
     if isinstance(step.action, schema.ReadText):
         run.outputs[step.action.bind_to] = read or ""
 
-    return _await_postcondition(step, run, attempts), tier
-
-
-def _screened(observation: Observation, step: Step, run: _Run, attempts: int) -> Observation:
-    blocking = screen(observation, run.profile, run.session)
-    if blocking is not None:
-        raise InterstitialDetected(step.step_id, blocking, attempts, observation)
-    return observation
+    observation = await_predicate(
+        step.postcondition, step.postcondition_timeout_ms, run.profile, session, attempts
+    )
+    return observation, tier
 
 
 def _dismiss(step: Step, blocked: InterstitialDetected, run: _Run) -> None:
@@ -193,25 +188,6 @@ def _dismiss(step: Step, blocked: InterstitialDetected, run: _Run) -> None:
     run.session.log.emit(
         "interstitial_dismissed", step_id=step.step_id, interstitial=blocked.interstitial.name
     )
-
-
-def _await_postcondition(step: Step, run: _Run, attempts: int) -> Observation:
-    # No fixed delay: each iteration is a fresh observation, and observe() itself
-    # blocks on the surface's own readiness (invariant 2). A surface that is not
-    # ready yet is "not yet", and the step deadline decides when it is "never".
-    deadline = time.monotonic() + step.postcondition_timeout_ms / 1000
-    summary = "surface never became ready"
-    while True:
-        try:
-            observation = _screened(run.session.observe(), step, run, attempts)
-        except SurfaceNotReady:
-            observation = None
-        if observation is not None:
-            if holds(step.postcondition, observation, run.session):
-                return observation
-            summary = _summary(observation)
-        if time.monotonic() >= deadline:
-            raise PostconditionTimeout(step.step_id, describe(step.postcondition), summary)
 
 
 def _check_params(capability: Capability, params: dict[str, str]) -> None:
@@ -237,10 +213,6 @@ def _to_surface_action(step: Step, session: Session) -> SurfaceAction:
     if isinstance(action, schema.ReadText):
         return ReadText()
     raise TypeError(f"unknown action {type(action).__name__}")
-
-
-def _summary(observation: Observation) -> str:
-    return f"location {observation.location!r}, {len(observation.nodes)} nodes"
 
 
 def _result(run: _Run, outcome: OutcomeSpec | None, failure: Failure | None) -> ReplayResult:

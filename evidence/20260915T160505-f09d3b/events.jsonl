@@ -1,0 +1,12 @@
+{"ts": 1789502707.997531, "event": "action", "step_id": "turn_0", "kind": "navigate", "risk": "read_only", "location": "blank", "target": null}
+{"ts": 1789502708.037227, "event": "turn", "index": 0, "kind": "act", "ok": true}
+{"ts": 1789502709.367451, "event": "action", "step_id": "turn_1", "kind": "typetext", "risk": "reversible", "location": "/members/search", "target": {"role": "textbox", "name": "Member ID"}}
+{"ts": 1789502709.429058, "event": "turn", "index": 1, "kind": "act", "ok": true}
+{"ts": 1789502710.6695821, "event": "action", "step_id": "turn_2", "kind": "click", "risk": "read_only", "location": "/members/search", "target": {"role": "button", "name": "Search"}}
+{"ts": 1789502710.737792, "event": "turn", "index": 2, "kind": "act", "ok": true}
+{"ts": 1789502712.636698, "event": "action", "step_id": "turn_3", "kind": "readtext", "risk": "read_only", "location": "/member/<param:member_id>", "target": {"role": "definition", "name": ""}}
+{"ts": 1789502712.65044, "event": "turn", "index": 3, "kind": "act", "ok": true}
+{"ts": 1789502714.722272, "event": "action", "step_id": "turn_4", "kind": "readtext", "risk": "read_only", "location": "/member/<param:member_id>", "target": {"role": "definition", "name": ""}}
+{"ts": 1789502714.738793, "event": "turn", "index": 4, "kind": "act", "ok": true}
+{"ts": 1789502715.8408582, "event": "turn", "index": 5, "kind": "finish", "ok": true}
+{"ts": 1789502715.840945, "event": "run_finished", "status": "success", "outcome": "plan_status_and_renewal_date_found"}

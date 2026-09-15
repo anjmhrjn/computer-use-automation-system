@@ -6,9 +6,10 @@ wherever they came from."""
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass
 
-from cua.schema import Capability, Sensitivity
+from cua.schema import Capability, ParameterSpec, Sensitivity
 
 SENSITIVE = frozenset({Sensitivity.pii, Sensitivity.secret})
 
@@ -31,9 +32,13 @@ class Redactor:
 
     @classmethod
     def for_run(cls, capability: Capability, params: dict[str, str]) -> "Redactor":
+        return cls.for_inputs(capability.inputs, params)
+
+    @classmethod
+    def for_inputs(cls, inputs: Iterable[ParameterSpec], params: dict[str, str]) -> "Redactor":
         pairs = [
             (spec.name, params[spec.name])
-            for spec in capability.inputs
+            for spec in inputs
             if spec.sensitivity in SENSITIVE and params.get(spec.name)
         ]
         # Longest value first so a value that contains another is replaced whole.

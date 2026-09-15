@@ -1,0 +1,9 @@
+{"ts": 1789502936.375822, "event": "action", "step_id": "turn_0", "kind": "navigate", "risk": "read_only", "location": "blank", "target": null}
+{"ts": 1789502936.42448, "event": "turn", "index": 0, "kind": "act", "ok": true}
+{"ts": 1789502938.3061929, "event": "action", "step_id": "turn_1", "kind": "typetext", "risk": "reversible", "location": "/members/search", "target": {"role": "textbox", "name": "Member ID"}}
+{"ts": 1789502938.344865, "event": "turn", "index": 1, "kind": "act", "ok": true}
+{"ts": 1789502940.033653, "event": "action", "step_id": "turn_2", "kind": "click", "risk": "read_only", "location": "/members/search", "target": {"role": "button", "name": "Search"}}
+{"ts": 1789502940.090341, "event": "turn", "index": 2, "kind": "act", "ok": true}
+{"ts": 1789502941.2132301, "event": "turn", "index": 3, "kind": "finish", "ok": false}
+{"ts": 1789502943.041384, "event": "turn", "index": 4, "kind": "finish", "ok": true}
+{"ts": 1789502943.041458, "event": "run_finished", "status": "business_outcome", "outcome": "member_not_found"}

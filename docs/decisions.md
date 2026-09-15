@@ -373,3 +373,92 @@ text — so a `none`-sensitivity value never reaches the log even before redacti
 Failure strings on the result are redacted in the engine when the result is built,
 so the `ReplayResult` is clean at source rather than at each consumer. The CLI
 writes events to stderr and keeps stdout for the result JSON.
+
+## Item 7 — Discovery loop and fixture mode
+
+**The model declares the contract from the free-text goal, and sees each input
+value exactly once.** `discover --goal "Look up ... for member 10001"` makes one
+structured call that returns the contract: name, description, inputs (with the
+literal value the model read out of the goal, its type, and its sensitivity) and
+outputs. The redactor is built from those declared values before anything else is
+written, so the goal itself lands in the transcript as `... member
+<param:member_id>`, and every later prompt refers to inputs by name only: the
+model types `{"kind":"parameter","name":"member_id"}` and the chokepoint
+substitutes. A human-authored goal spec (inputs and outputs given up front) was
+rejected as narrowing the brief — the point is that the LLM works the task out —
+at the cost of the model seeing the raw value in that one declare call. Because a
+sensitive value is `<param:name>` on disk, a fixture-mode run has to be given the
+real value with `--param`; that is a feature, since it is also what makes the
+transcript replayable for a different member.
+
+**The model picks a node id; the loop derives the descriptor and proves it.**
+The rendered accessibility tree carries an opaque `node_id` per line and the model
+answers with one. `derive.describe()` builds a `TargetDescriptor` from that node by
+rules — name, then the nearest named container, then the nearest preceding
+heading/label as nearby text, then ordinal — adding one signal at a time until
+`resolve(strict=True)` lands on exactly that node. The descriptor is therefore
+proven replayable at the moment it is recorded, with the same resolver that will
+replay it. Letting the model author descriptors was rejected: it can invent names,
+it costs tokens, and it would still need the same round-trip. Deriving them at
+compile time from raw observations was rejected because nothing would be
+verified until first replay.
+
+**Expectations are model-declared in a reduced form and upgraded to
+predicates.** Every `act` carries an `expect` — `location`, `value`, `element`, or
+`text` — and every `finish` a detector of the same shape; the loop turns it into a
+full `Predicate` and polls it with replay's own `holds()` before the next turn.
+`element` names a role plus accessible name and/or label (the first live run
+showed that a `definition` has no accessible name and could only be named by its
+label, which the shape initially lacked) and is upgraded by resolving it on the
+page that appeared and deriving the descriptor from the match. A postcondition
+that does not hold within the timeout is a dead end, fed back to the model as its
+next result with the candidates it could have named. The transcript keeps the dead
+end; item 8 prunes it.
+
+**Two rules the loop enforces so the transcript stays replayable for other
+inputs.** A `text` expectation that quotes a value just read or typed, or that
+contains a `<param:…>` placeholder, is refused as a dead end before it is
+evaluated. The first live run passed with `text_present "Active"` as the
+postcondition for reading the plan status — true for member 10001, false for
+every other member — and the compiled capability would have carried it; the prompt
+now says so, but replayability across inputs must not depend on prompt compliance.
+Likewise a turn identical to the previous, failed one is refused without being
+executed, and three in a row halt the run as `stuck`: the second live run spent
+sixteen turns re-issuing the same detector.
+
+**Only observed outcomes are recorded.** One run walks one branch; the `finish`
+turn names the outcome it reached and its detector must hold on the page the model
+is looking at. Detectors for unreached outcomes are a human assertion, and letting
+the model guess one was rejected as a silent fallback. A draft/approved lifecycle
+on the artifact (compile emits a draft, a reviewer adds the other outcomes and
+approves) is the right home for that and is a stretch goal, out of scope. The
+business branch was discovered by a second run with an unknown id; merging the two
+transcripts is item 8's problem, and both runs are kept under `evidence/`.
+
+**Fixture mode is a `Model` adapter that re-binds node ids.** `TranscriptModel`
+serves the recorded contract and turns; the surface, policy, derivation,
+verification, and evidence writing all run for real, so `--from-transcript` proves
+the recorded turns against the live app with no key. Node ids are scoped to one
+observation and mean nothing in a new browser session, so each recorded `act` is
+re-bound by resolving the descriptor the loop derived for it against the live
+observation, through a `locate` callback on the prompt — the same identity replay
+will use. Replaying recorded responses verbatim was the first design and failed on
+the first live-app run. A recorded location that differs from the live one, or a
+descriptor that no longer resolves, is `TranscriptDiverged`, not a best-effort
+continue.
+
+**Discovery does not dismiss interstitials, and a risky turn halts.** Any
+interstitial the profile declares ends a discovery run as failed; dismissing it
+would put "click Continue" in the transcript as a step. Risk is self-declared by
+the model per action and discovery always runs with `approve_risky=False`, so a
+`risky` turn halts as `approval_required` before dispatch (invariant 12); a
+rule-based risk classifier is out of scope.
+
+**What the model sees, and what is kept.** The prompt is the accessibility tree
+only — no screenshot — rendered one node per line with layout-table wrappers
+dropped (leaf layout cells kept, since legacy pages keep data there) and text shown
+on leaves only; the first live-app rendering was three times longer and repeated
+each container's text below it. Every run writes `evidence/<run_id>/` with the
+transcript, the observation before and after every turn, and the literal prompt
+text per turn, all through the redactor at the sink. The event log goes to stderr
+as before; for the committed runs it was captured as `events.jsonl`.

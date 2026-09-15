@@ -11,6 +11,7 @@ from .errors import (
 from .events import EventLog
 from .predicates import describe, holds
 from .session import Session
+from .wait import await_predicate, screened, summarize
 
 __all__ = [
     "MAX_DISMISSALS",
@@ -22,9 +23,12 @@ __all__ = [
     "ReplayError",
     "Session",
     "TargetUnresolved",
+    "await_predicate",
     "describe",
     "holds",
     "replay",
     "screen",
+    "screened",
+    "summarize",
     "to_failure",
 ]
