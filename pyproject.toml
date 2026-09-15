@@ -1,0 +1,31 @@
+[project]
+name = "computer-use-automation-system"
+version = "0.1.0"
+description = "Computer-use automation: discover once, compile to a typed capability, replay deterministically."
+readme = "README.md"
+authors = [
+    { name = "Anuj", email = "anjmhrjn1@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.13.5",
+]
+
+[project.scripts]
+cua = "cua.cli:app"
+
+[tool.uv.build-backend]
+module-name = "cua"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"

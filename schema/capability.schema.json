@@ -1,0 +1,885 @@
+{
+  "$defs": {
+    "Click": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "click",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "title": "Click",
+      "type": "object"
+    },
+    "ContainerHint": {
+      "additionalProperties": false,
+      "description": "The enclosing landmark, section, or row a target sits in.",
+      "properties": {
+        "accessible_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Accessible Name"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "accessible_name"
+      ],
+      "title": "ContainerHint",
+      "type": "object"
+    },
+    "ElementAbsent": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "element_absent",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/TargetDescriptor"
+        }
+      },
+      "required": [
+        "kind",
+        "target"
+      ],
+      "title": "ElementAbsent",
+      "type": "object"
+    },
+    "ElementPresent": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "element_present",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/TargetDescriptor"
+        }
+      },
+      "required": [
+        "kind",
+        "target"
+      ],
+      "title": "ElementPresent",
+      "type": "object"
+    },
+    "EvidenceRef": {
+      "additionalProperties": false,
+      "properties": {
+        "ax_snapshot": {
+          "title": "Ax Snapshot",
+          "type": "string"
+        },
+        "screenshot": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Screenshot"
+        }
+      },
+      "required": [
+        "ax_snapshot",
+        "screenshot"
+      ],
+      "title": "EvidenceRef",
+      "type": "object"
+    },
+    "LiteralValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "literal",
+          "title": "Kind",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "title": "LiteralValue",
+      "type": "object"
+    },
+    "LocationMatches": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "location_matches",
+          "title": "Kind",
+          "type": "string"
+        },
+        "pattern": {
+          "title": "Pattern",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "pattern"
+      ],
+      "title": "LocationMatches",
+      "type": "object"
+    },
+    "NameMatch": {
+      "enum": [
+        "exact",
+        "contains",
+        "normalized"
+      ],
+      "title": "NameMatch",
+      "type": "string"
+    },
+    "Navigate": {
+      "additionalProperties": false,
+      "description": "Moves the surface to a named location. A location is opaque above the\nSurface port -- the web adapter fills it from the URL path, a desktop adapter\nwould use a window title.",
+      "properties": {
+        "kind": {
+          "const": "navigate",
+          "title": "Kind",
+          "type": "string"
+        },
+        "location": {
+          "title": "Location",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "location"
+      ],
+      "title": "Navigate",
+      "type": "object"
+    },
+    "OutcomeKind": {
+      "enum": [
+        "success",
+        "business"
+      ],
+      "title": "OutcomeKind",
+      "type": "string"
+    },
+    "OutcomeSpec": {
+      "additionalProperties": false,
+      "description": "A declared answer the caller asked for, not a failure.\n\nDetectors are evaluated after every step; the first to fire ends the run with\nthat outcome. `binds` names the outputs that are meaningful when it fires.",
+      "properties": {
+        "binds": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Binds",
+          "type": "array"
+        },
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "detector": {
+          "discriminator": {
+            "mapping": {
+              "element_absent": "#/$defs/ElementAbsent",
+              "element_present": "#/$defs/ElementPresent",
+              "location_matches": "#/$defs/LocationMatches",
+              "text_present": "#/$defs/TextPresent",
+              "value_equals": "#/$defs/ValueEquals"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ElementPresent"
+            },
+            {
+              "$ref": "#/$defs/ElementAbsent"
+            },
+            {
+              "$ref": "#/$defs/TextPresent"
+            },
+            {
+              "$ref": "#/$defs/LocationMatches"
+            },
+            {
+              "$ref": "#/$defs/ValueEquals"
+            }
+          ],
+          "title": "Detector"
+        },
+        "kind": {
+          "$ref": "#/$defs/OutcomeKind"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "detector",
+        "binds",
+        "description"
+      ],
+      "title": "OutcomeSpec",
+      "type": "object"
+    },
+    "OutputSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "value_type": {
+          "$ref": "#/$defs/ValueType"
+        }
+      },
+      "required": [
+        "name",
+        "value_type",
+        "description"
+      ],
+      "title": "OutputSpec",
+      "type": "object"
+    },
+    "ParameterSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "description": {
+          "title": "Description",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "sensitivity": {
+          "$ref": "#/$defs/Sensitivity"
+        },
+        "value_type": {
+          "$ref": "#/$defs/ValueType"
+        }
+      },
+      "required": [
+        "name",
+        "value_type",
+        "required",
+        "sensitivity",
+        "description"
+      ],
+      "title": "ParameterSpec",
+      "type": "object"
+    },
+    "ParameterValue": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "parameter",
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "name"
+      ],
+      "title": "ParameterValue",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "compiler_version": {
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "discovered_at": {
+          "title": "Discovered At",
+          "type": "string"
+        },
+        "transcript_run_id": {
+          "title": "Transcript Run Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "transcript_run_id",
+        "discovered_at",
+        "compiler_version"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "ReadText": {
+      "additionalProperties": false,
+      "properties": {
+        "bind_to": {
+          "title": "Bind To",
+          "type": "string"
+        },
+        "kind": {
+          "const": "read_text",
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "bind_to"
+      ],
+      "title": "ReadText",
+      "type": "object"
+    },
+    "RiskClass": {
+      "enum": [
+        "read_only",
+        "reversible",
+        "risky"
+      ],
+      "title": "RiskClass",
+      "type": "string"
+    },
+    "SelectOption": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "select_option",
+          "title": "Kind",
+          "type": "string"
+        },
+        "option": {
+          "discriminator": {
+            "mapping": {
+              "literal": "#/$defs/LiteralValue",
+              "parameter": "#/$defs/ParameterValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ParameterValue"
+            },
+            {
+              "$ref": "#/$defs/LiteralValue"
+            }
+          ],
+          "title": "Option"
+        }
+      },
+      "required": [
+        "kind",
+        "option"
+      ],
+      "title": "SelectOption",
+      "type": "object"
+    },
+    "Sensitivity": {
+      "description": "Drives redaction. `none` still never means \"safe to inline into a step\".",
+      "enum": [
+        "none",
+        "pii",
+        "secret"
+      ],
+      "title": "Sensitivity",
+      "type": "string"
+    },
+    "Step": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "discriminator": {
+            "mapping": {
+              "click": "#/$defs/Click",
+              "navigate": "#/$defs/Navigate",
+              "read_text": "#/$defs/ReadText",
+              "select_option": "#/$defs/SelectOption",
+              "type_text": "#/$defs/TypeText"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/Navigate"
+            },
+            {
+              "$ref": "#/$defs/Click"
+            },
+            {
+              "$ref": "#/$defs/TypeText"
+            },
+            {
+              "$ref": "#/$defs/SelectOption"
+            },
+            {
+              "$ref": "#/$defs/ReadText"
+            }
+          ],
+          "title": "Action"
+        },
+        "intent": {
+          "title": "Intent",
+          "type": "string"
+        },
+        "postcondition": {
+          "discriminator": {
+            "mapping": {
+              "element_absent": "#/$defs/ElementAbsent",
+              "element_present": "#/$defs/ElementPresent",
+              "location_matches": "#/$defs/LocationMatches",
+              "text_present": "#/$defs/TextPresent",
+              "value_equals": "#/$defs/ValueEquals"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ElementPresent"
+            },
+            {
+              "$ref": "#/$defs/ElementAbsent"
+            },
+            {
+              "$ref": "#/$defs/TextPresent"
+            },
+            {
+              "$ref": "#/$defs/LocationMatches"
+            },
+            {
+              "$ref": "#/$defs/ValueEquals"
+            }
+          ],
+          "title": "Postcondition"
+        },
+        "postcondition_timeout_ms": {
+          "title": "Postcondition Timeout Ms",
+          "type": "integer"
+        },
+        "risk": {
+          "$ref": "#/$defs/RiskClass"
+        },
+        "step_id": {
+          "title": "Step Id",
+          "type": "string"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/TargetDescriptor"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "step_id",
+        "intent",
+        "action",
+        "target",
+        "risk",
+        "postcondition",
+        "postcondition_timeout_ms"
+      ],
+      "title": "Step",
+      "type": "object"
+    },
+    "SurfaceKind": {
+      "enum": [
+        "web"
+      ],
+      "title": "SurfaceKind",
+      "type": "string"
+    },
+    "TargetApp": {
+      "additionalProperties": false,
+      "properties": {
+        "app_id": {
+          "title": "App Id",
+          "type": "string"
+        },
+        "app_version": {
+          "title": "App Version",
+          "type": "string"
+        },
+        "location_pattern": {
+          "title": "Location Pattern",
+          "type": "string"
+        },
+        "surface_kind": {
+          "$ref": "#/$defs/SurfaceKind"
+        }
+      },
+      "required": [
+        "app_id",
+        "app_version",
+        "surface_kind",
+        "location_pattern"
+      ],
+      "title": "TargetApp",
+      "type": "object"
+    },
+    "TargetDescriptor": {
+      "additionalProperties": false,
+      "description": "Independent signals identifying one control, recorded at discovery.\n\nSignals only. The ranked order they are tried in belongs to the resolver, so\nre-ranking tiers never requires re-cutting artifacts. There is deliberately no\nfield a selector, XPath, or coordinate could be stored in.",
+      "properties": {
+        "accessible_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Accessible Name"
+        },
+        "container": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContainerHint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvidenceRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "frame_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Frame Path",
+          "type": "array"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Label"
+        },
+        "name_match": {
+          "$ref": "#/$defs/NameMatch"
+        },
+        "nearby_text": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Nearby Text",
+          "type": "array"
+        },
+        "ordinal": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ordinal"
+        },
+        "role": {
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "required": [
+        "role",
+        "accessible_name",
+        "name_match",
+        "label",
+        "nearby_text",
+        "container",
+        "ordinal",
+        "frame_path",
+        "evidence"
+      ],
+      "title": "TargetDescriptor",
+      "type": "object"
+    },
+    "TextPresent": {
+      "additionalProperties": false,
+      "properties": {
+        "frame_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Frame Path",
+          "type": "array"
+        },
+        "kind": {
+          "const": "text_present",
+          "title": "Kind",
+          "type": "string"
+        },
+        "scope": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContainerHint"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text",
+        "scope",
+        "frame_path"
+      ],
+      "title": "TextPresent",
+      "type": "object"
+    },
+    "TypeText": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "type_text",
+          "title": "Kind",
+          "type": "string"
+        },
+        "value": {
+          "discriminator": {
+            "mapping": {
+              "literal": "#/$defs/LiteralValue",
+              "parameter": "#/$defs/ParameterValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ParameterValue"
+            },
+            {
+              "$ref": "#/$defs/LiteralValue"
+            }
+          ],
+          "title": "Value"
+        }
+      },
+      "required": [
+        "kind",
+        "value"
+      ],
+      "title": "TypeText",
+      "type": "object"
+    },
+    "ValueEquals": {
+      "additionalProperties": false,
+      "properties": {
+        "expected": {
+          "discriminator": {
+            "mapping": {
+              "literal": "#/$defs/LiteralValue",
+              "parameter": "#/$defs/ParameterValue"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/ParameterValue"
+            },
+            {
+              "$ref": "#/$defs/LiteralValue"
+            }
+          ],
+          "title": "Expected"
+        },
+        "kind": {
+          "const": "value_equals",
+          "title": "Kind",
+          "type": "string"
+        },
+        "target": {
+          "$ref": "#/$defs/TargetDescriptor"
+        }
+      },
+      "required": [
+        "kind",
+        "target",
+        "expected"
+      ],
+      "title": "ValueEquals",
+      "type": "object"
+    },
+    "ValueType": {
+      "enum": [
+        "string",
+        "integer",
+        "number",
+        "boolean",
+        "date"
+      ],
+      "title": "ValueType",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "capability_id": {
+      "title": "Capability Id",
+      "type": "string"
+    },
+    "checkpoint": {
+      "discriminator": {
+        "mapping": {
+          "element_absent": "#/$defs/ElementAbsent",
+          "element_present": "#/$defs/ElementPresent",
+          "location_matches": "#/$defs/LocationMatches",
+          "text_present": "#/$defs/TextPresent",
+          "value_equals": "#/$defs/ValueEquals"
+        },
+        "propertyName": "kind"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/$defs/ElementPresent"
+        },
+        {
+          "$ref": "#/$defs/ElementAbsent"
+        },
+        {
+          "$ref": "#/$defs/TextPresent"
+        },
+        {
+          "$ref": "#/$defs/LocationMatches"
+        },
+        {
+          "$ref": "#/$defs/ValueEquals"
+        }
+      ],
+      "title": "Checkpoint"
+    },
+    "description": {
+      "title": "Description",
+      "type": "string"
+    },
+    "inputs": {
+      "items": {
+        "$ref": "#/$defs/ParameterSpec"
+      },
+      "title": "Inputs",
+      "type": "array"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "outcomes": {
+      "items": {
+        "$ref": "#/$defs/OutcomeSpec"
+      },
+      "title": "Outcomes",
+      "type": "array"
+    },
+    "outputs": {
+      "items": {
+        "$ref": "#/$defs/OutputSpec"
+      },
+      "title": "Outputs",
+      "type": "array"
+    },
+    "provenance": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Provenance"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "schema_version": {
+      "const": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/Step"
+      },
+      "title": "Steps",
+      "type": "array"
+    },
+    "target": {
+      "$ref": "#/$defs/TargetApp"
+    },
+    "version": {
+      "title": "Version",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "capability_id",
+    "version",
+    "name",
+    "description",
+    "target",
+    "inputs",
+    "outputs",
+    "outcomes",
+    "steps",
+    "checkpoint",
+    "provenance"
+  ],
+  "title": "Capability",
+  "type": "object"
+}

@@ -1,0 +1,270 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "memberserve.lookup_member_status",
+  "version": "1.0.0",
+  "name": "Look up member plan status",
+  "description": "Given a member id, return the member's plan status and renewal date from the MemberServe member record, or report that no such member exists.",
+  "target": {
+    "app_id": "memberserve",
+    "app_version": "3.1",
+    "surface_kind": "web",
+    "location_pattern": "/member*"
+  },
+  "inputs": [
+    {
+      "name": "member_id",
+      "value_type": "string",
+      "required": true,
+      "sensitivity": "pii",
+      "description": "MemberServe member identifier, as printed on the member card."
+    }
+  ],
+  "outputs": [
+    {
+      "name": "plan_status",
+      "value_type": "string",
+      "description": "Coverage status of the member's plan, e.g. Active, Lapsed, Suspended."
+    },
+    {
+      "name": "renewal_date",
+      "value_type": "date",
+      "description": "Date the member's plan next renews."
+    }
+  ],
+  "outcomes": [
+    {
+      "name": "no_such_member",
+      "kind": "business",
+      "detector": {
+        "kind": "text_present",
+        "text": "No member found",
+        "scope": null,
+        "frame_path": []
+      },
+      "binds": [],
+      "description": "The supplied member id matches no record. A declared answer, not a failure."
+    },
+    {
+      "name": "found",
+      "kind": "success",
+      "detector": {
+        "kind": "element_present",
+        "target": {
+          "role": "heading",
+          "accessible_name": "Member Record",
+          "name_match": "contains",
+          "label": null,
+          "nearby_text": [],
+          "container": null,
+          "ordinal": null,
+          "frame_path": ["Member Record"],
+          "evidence": null
+        }
+      },
+      "binds": ["plan_status", "renewal_date"],
+      "description": "The member record loaded and both outputs were read."
+    }
+  ],
+  "steps": [
+    {
+      "step_id": "open_search",
+      "intent": "Open the member search screen.",
+      "action": {
+        "kind": "navigate",
+        "location": "/members/search"
+      },
+      "target": null,
+      "risk": "read_only",
+      "postcondition": {
+        "kind": "element_present",
+        "target": {
+          "role": "textbox",
+          "accessible_name": "Member ID",
+          "name_match": "exact",
+          "label": "Member ID",
+          "nearby_text": ["Find a member"],
+          "container": {
+            "role": "form",
+            "accessible_name": "Member search"
+          },
+          "ordinal": null,
+          "frame_path": [],
+          "evidence": null
+        }
+      },
+      "postcondition_timeout_ms": 5000
+    },
+    {
+      "step_id": "enter_member_id",
+      "intent": "Type the member id into the search field.",
+      "action": {
+        "kind": "type_text",
+        "value": {
+          "kind": "parameter",
+          "name": "member_id"
+        }
+      },
+      "target": {
+        "role": "textbox",
+        "accessible_name": "Member ID",
+        "name_match": "exact",
+        "label": "Member ID",
+        "nearby_text": ["Find a member"],
+        "container": {
+          "role": "form",
+          "accessible_name": "Member search"
+        },
+        "ordinal": null,
+        "frame_path": [],
+        "evidence": null
+      },
+      "risk": "read_only",
+      "postcondition": {
+        "kind": "value_equals",
+        "target": {
+          "role": "textbox",
+          "accessible_name": "Member ID",
+          "name_match": "exact",
+          "label": "Member ID",
+          "nearby_text": ["Find a member"],
+          "container": {
+            "role": "form",
+            "accessible_name": "Member search"
+          },
+          "ordinal": null,
+          "frame_path": [],
+          "evidence": null
+        },
+        "expected": {
+          "kind": "parameter",
+          "name": "member_id"
+        }
+      },
+      "postcondition_timeout_ms": 2000
+    },
+    {
+      "step_id": "submit_search",
+      "intent": "Submit the search and land on the member record location.",
+      "action": {
+        "kind": "click"
+      },
+      "target": {
+        "role": "button",
+        "accessible_name": "Search",
+        "name_match": "exact",
+        "label": null,
+        "nearby_text": ["Member ID"],
+        "container": {
+          "role": "form",
+          "accessible_name": "Member search"
+        },
+        "ordinal": null,
+        "frame_path": [],
+        "evidence": null
+      },
+      "risk": "read_only",
+      "postcondition": {
+        "kind": "location_matches",
+        "pattern": "/member/*"
+      },
+      "postcondition_timeout_ms": 10000
+    },
+    {
+      "step_id": "read_plan_status",
+      "intent": "Read the plan status from the coverage panel.",
+      "action": {
+        "kind": "read_text",
+        "bind_to": "plan_status"
+      },
+      "target": {
+        "role": "definition",
+        "accessible_name": null,
+        "name_match": "normalized",
+        "label": "Plan Status",
+        "nearby_text": ["Coverage"],
+        "container": {
+          "role": "group",
+          "accessible_name": "Coverage"
+        },
+        "ordinal": null,
+        "frame_path": ["Member Record"],
+        "evidence": null
+      },
+      "risk": "read_only",
+      "postcondition": {
+        "kind": "element_present",
+        "target": {
+          "role": "definition",
+          "accessible_name": null,
+          "name_match": "normalized",
+          "label": "Plan Status",
+          "nearby_text": ["Coverage"],
+          "container": {
+            "role": "group",
+            "accessible_name": "Coverage"
+          },
+          "ordinal": null,
+          "frame_path": ["Member Record"],
+          "evidence": null
+        }
+      },
+      "postcondition_timeout_ms": 5000
+    },
+    {
+      "step_id": "read_renewal_date",
+      "intent": "Read the renewal date from the coverage panel.",
+      "action": {
+        "kind": "read_text",
+        "bind_to": "renewal_date"
+      },
+      "target": {
+        "role": "definition",
+        "accessible_name": null,
+        "name_match": "normalized",
+        "label": "Renewal Date",
+        "nearby_text": ["Coverage"],
+        "container": {
+          "role": "group",
+          "accessible_name": "Coverage"
+        },
+        "ordinal": null,
+        "frame_path": ["Member Record"],
+        "evidence": null
+      },
+      "risk": "read_only",
+      "postcondition": {
+        "kind": "element_present",
+        "target": {
+          "role": "definition",
+          "accessible_name": null,
+          "name_match": "normalized",
+          "label": "Renewal Date",
+          "nearby_text": ["Coverage"],
+          "container": {
+            "role": "group",
+            "accessible_name": "Coverage"
+          },
+          "ordinal": null,
+          "frame_path": ["Member Record"],
+          "evidence": null
+        }
+      },
+      "postcondition_timeout_ms": 5000
+    }
+  ],
+  "checkpoint": {
+    "kind": "element_present",
+    "target": {
+      "role": "heading",
+      "accessible_name": "Member Record",
+      "name_match": "contains",
+      "label": null,
+      "nearby_text": [],
+      "container": null,
+      "ordinal": null,
+      "frame_path": ["Member Record"],
+      "evidence": null
+    }
+  },
+  "provenance": null
+}
