@@ -11,7 +11,7 @@ from .errors import (
 from .graph import ElementNode, Observation
 from .playwright_web import PlaywrightWebSurface
 from .port import Surface
-from .resolver import Resolution, resolve
+from .resolver import Resolution, normalize, resolve, within
 
 __all__ = [
     "ActionNotApplicable",
@@ -32,5 +32,7 @@ __all__ = [
     "TierTrace",
     "TypeText",
     "Unresolvable",
+    "normalize",
     "resolve",
+    "within",
 ]

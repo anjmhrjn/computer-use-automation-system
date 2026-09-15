@@ -30,6 +30,7 @@ from .predicate import (
     TextPresent,
     ValueEquals,
 )
+from .result import ReplayResult, StepTrace
 from .target import ContainerHint, EvidenceRef, TargetDescriptor
 
 __all__ = [
@@ -53,10 +54,12 @@ __all__ = [
     "Predicate",
     "Provenance",
     "ReadText",
+    "ReplayResult",
     "RiskClass",
     "SelectOption",
     "Sensitivity",
     "Step",
+    "StepTrace",
     "StrictModel",
     "SurfaceKind",
     "TargetApp",

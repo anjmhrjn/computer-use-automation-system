@@ -175,7 +175,7 @@ page. The cost is one extra `observe()` per step in the replay loop; against a l
 app that is milliseconds, and it is the same observation the postcondition needs.
 
 **`nearby_text` is a document-order window.** A nearby string matches if it appears
-in the text of any node within ±10 positions in the same frame. Structural
+in the text of any node within ±15 positions in the same frame (widened from 10 in item 4, when strict postcondition evaluation first exercised the signal against the real tree: nested-table chrome puts the "Find a member" heading 12 nodes before the textbox). Structural
 definitions — "within the same landmark" or "within the same table row" — were tried
 on paper and rejected: "Find a member" is a heading *outside* the search form, so any
 container-based rule excludes exactly the case the artifact records. The window is a
@@ -191,3 +191,61 @@ accessible name and is labelled by the preceding `term` sibling, which the adapt
 computes so the artifact's `label: "Plan Status"` has something to match.
 `DOM.pushNodesByBackendIdsToFrontend` requires `DOM.getDocument` on the current
 document first, and every navigation is a new document.
+
+## Item 4 — Replay engine
+
+**The `Session` chokepoint exists from the first replay, even though it only
+forwards.** `Session.act()` is the one path from the engine to the surface; the
+engine never holds a `Surface` reference of its own. Today the method forwards and
+resolves parameter references, nothing more. Deferring it to item 6 was rejected
+because the policy check and the item-9 control-token check are additions *inside*
+one method when the seam already exists, and a rewrite of every action site when it
+does not. It is the one abstraction invariant 4 names, so it is not scaffolding. A
+fake-surface test asserts every action reached the surface through `Session.act`.
+
+**Business-outcome detectors run on the observation that satisfied the step's
+postcondition, never during the wait.** The postcondition is the proof that the
+action's transition happened; evaluating detectors on any earlier snapshot risks
+matching text from the page *before* the click. The alternative — also checking
+detectors on every poll so an outcome page that never satisfies the postcondition
+still yields the answer instead of a timeout — was rejected for that reason and
+because it needs a precedence rule between "postcondition holds" and "detector
+fires". The cost is a constraint on artifacts: a step whose outcome page can differ
+must carry a postcondition that holds on every branch (the item-1 decision already
+requires this of `submit_search`). The success outcome is checked only after the
+last step and the checkpoint, because it binds outputs that do not exist earlier;
+checkpoint and success detector are both required to hold, redundantly in the
+current artifact, so that an artifact whose two predicates differ gets both checked.
+
+**Predicates resolve strictly; actions resolve tolerantly.** The item-3 resolver
+skips a recorded signal that would leave zero candidates, so a click survives a
+renamed label. Applied to `element_present` that tolerance is wrong: "textbox named
+Member ID is present" would degrade to "some textbox is present", and the
+`open_search` postcondition would pass on variant-b, contradicting the item-2 decision
+that the base artifact fails there. `resolve(strict=True)` turns the skip into
+`Unresolvable` and never early-returns on a single candidate, so every recorded signal
+is checked. A separate matcher for predicates was rejected: one definition of "does
+this descriptor match this node" is enough, and the trace is the same shape either
+way. Strict mode immediately caught a real drift in the hand-written artifact — the
+`nearby_text` window was too narrow for the real tree — which tolerant resolution
+had been hiding since item 3.
+
+**Ambiguous is neither present nor absent.** `element_present` is false when two
+nodes match (invariant 3: never pick one), and `element_absent` is also false, because
+the element is evidently there. A postcondition that hits ambiguity therefore times
+out with the trace in the error, rather than passing by accident in either direction.
+
+**Failures raise; only outcomes return.** `replay()` returns a `ReplayResult` only for
+a declared outcome — success or business. Anything else is a typed `ReplayError`
+carrying `step_id`, expected, observed: `MissingParameter`, `TargetUnresolved`,
+`PostconditionTimeout`, `CheckpointFailed`. Folding failures into the result now was
+rejected because item 5 owns their classification and the shape would change twice.
+`ReplayResult.outputs` holds exactly the outcome's `binds`; an outcome that binds an
+output no step read is a `CheckpointFailed`, not a silently shorter mapping.
+
+**The wait is a poll of `observe()` with a monotonic deadline.** No sleep between
+polls (invariant 2): each iteration is a full accessibility-tree read, and the
+adapter's `observe()` already blocks on document readiness, so the loop is paced by
+the surface rather than by a timer. Against a local app this settles in one or two
+iterations; a remote surface would want the adapter to block longer, not the engine to
+sleep.

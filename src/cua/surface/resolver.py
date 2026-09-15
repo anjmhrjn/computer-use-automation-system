@@ -8,6 +8,12 @@ kill a target the other signals still pin down). More than one after every signa
 
 `frame_path` is a scope, not a tier: it never falls through to other frames, because
 the same label in a different frame is a different control.
+
+`strict` turns the drift tolerance off: every recorded signal must hold, and a signal
+matching nothing is `Unresolvable`. Acting uses the tolerant mode (a renamed label
+should not stop a click the other signals still pin down); a predicate asking
+"is this element here?" uses strict, because the answer must be about the element
+as recorded, not the nearest survivor.
 """
 
 from __future__ import annotations
@@ -21,7 +27,7 @@ from cua.schema import ContainerHint, NameMatch, TargetDescriptor
 from .errors import Ambiguous, TierTrace, Unresolvable
 from .graph import ElementNode, Observation
 
-NEARBY_WINDOW = 10
+NEARBY_WINDOW = 15
 
 _WS = re.compile(r"\s+")
 
@@ -48,7 +54,8 @@ class Resolution:
 Filter = Callable[[ElementNode], bool]
 
 
-def _container_filter(observation: Observation, hint: ContainerHint) -> Filter:
+def within(observation: Observation, hint: ContainerHint) -> Filter:
+    """True for nodes that have an ancestor matching the hint, in their own frame."""
     def inside(node: ElementNode) -> bool:
         for ancestor in observation.ancestors(node):
             if ancestor.role != hint.role:
@@ -81,7 +88,7 @@ def _tiers(observation: Observation, d: TargetDescriptor) -> list[tuple[str, Fil
         expected, mode = d.accessible_name, d.name_match
         tiers.append(("name", lambda n: name_matches(n.name, expected, mode)))
     if d.container is not None:
-        tiers.append(("container", _container_filter(observation, d.container)))
+        tiers.append(("container", within(observation, d.container)))
     if d.label is not None:
         label = normalize(d.label)
         tiers.append(("label", lambda n: n.label is not None and normalize(n.label) == label))
@@ -90,7 +97,9 @@ def _tiers(observation: Observation, d: TargetDescriptor) -> list[tuple[str, Fil
     return tiers
 
 
-def resolve(observation: Observation, descriptor: TargetDescriptor) -> Resolution:
+def resolve(
+    observation: Observation, descriptor: TargetDescriptor, *, strict: bool = False
+) -> Resolution:
     trace: list[TierTrace] = []
     candidates = [
         n
@@ -102,18 +111,25 @@ def resolve(observation: Observation, descriptor: TargetDescriptor) -> Resolutio
         raise Unresolvable(
             f"no {descriptor.role!r} in frame {descriptor.frame_path}", descriptor, trace, []
         )
-    if len(candidates) == 1:
+    if len(candidates) == 1 and not strict:
         return Resolution(candidates[0], "frame+role", trace)
 
     for tier, keep in _tiers(observation, descriptor):
         narrowed = [n for n in candidates if keep(n)]
         if not narrowed:
             trace.append(TierTrace(tier, len(candidates), 0, True))
+            if strict:
+                raise Unresolvable(
+                    f"signal {tier} matches no {descriptor.role!r}", descriptor, trace, candidates
+                )
             continue
         trace.append(TierTrace(tier, len(candidates), len(narrowed), False))
         candidates = narrowed
-        if len(candidates) == 1:
+        if len(candidates) == 1 and not strict:
             return Resolution(candidates[0], tier, trace)
+
+    if len(candidates) == 1:
+        return Resolution(candidates[0], trace[-1].tier, trace)
 
     if descriptor.ordinal is not None:
         ordered = sorted(candidates, key=lambda n: n.order)
