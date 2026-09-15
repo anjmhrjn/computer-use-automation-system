@@ -21,7 +21,10 @@ from cua.surface import Ambiguous, Observation, Unresolvable, normalize, resolve
 from .session import Session
 
 
-def holds(predicate: Predicate, observation: Observation, session: Session) -> bool:
+def holds(predicate: Predicate, observation: Observation, session: Session | None) -> bool:
+    """`session` is only consulted for a `value_equals` parameter lookup; a caller
+    with no run (the compiler cross-checking a saved snapshot) passes `None` and
+    gets an error, not a guess, if the predicate needs one."""
     if isinstance(predicate, ElementPresent):
         # Ambiguous is not present: two matches is not "the element" (invariant 3).
         try:
@@ -52,6 +55,8 @@ def holds(predicate: Predicate, observation: Observation, session: Session) -> b
             resolution = resolve(observation, predicate.target, strict=True)
         except (Unresolvable, Ambiguous):
             return False
+        if session is None:
+            raise TypeError("value_equals needs a session to look up the expected value")
         return resolution.node.value == session.value(predicate.expected)
     raise TypeError(f"unknown predicate {type(predicate).__name__}")
 

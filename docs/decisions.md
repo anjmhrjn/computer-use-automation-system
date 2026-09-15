@@ -462,3 +462,69 @@ each container's text below it. Every run writes `evidence/<run_id>/` with the
 transcript, the observation before and after every turn, and the literal prompt
 text per turn, all through the redactor at the sink. The event log goes to stderr
 as before; for the committed runs it was captured as `events.jsonl`.
+
+## Item 8 — Compile: transcript → Capability
+
+**One success run supplies the steps; each business-outcome run must be a prefix
+of it and supplies one outcome.** `cua compile <success> [<business>…]` prunes the
+success transcript to its ok `act` turns, in order, and carries each turn's derived
+descriptor and postcondition over unchanged — they were proven at discovery with the
+same resolver replay uses, so compile has nothing to re-derive. A business run's ok
+`act` turns must equal the first N steps on action, target and postcondition (evidence
+paths excluded, since each run writes its own); the first divergence is
+`Incompatible`, naming the turn. Compiling the success run alone and hand-adding
+business outcomes was rejected because the compiled artifact could then not produce
+the `no_such_member` evidence run without a manual edit. Inferring branches from the
+two runs' divergence point was rejected as control flow the artifact does not
+declare (item 1). The prefix rule is what makes after-every-step detectors
+(item 1) safe: replaying the success steps necessarily walks the page the business
+detector was observed on.
+
+**A business detector is cross-checked against every page the success run settled
+on.** Discovery only proved the detector held on the page the model was looking at;
+it never asked whether the detector also holds on the *found* page, and a detector
+like "any `status` element" could. Compile loads the observation recorded before
+each turn that follows an ok act — the page that act settled on — and evaluates the
+detector with replay's own `holds()`; any hit is `Indiscriminate`. Trusting the
+discovery-time check alone was rejected because the failure mode is a replay that
+returns "no such member" for a member that exists — a wrong answer with a clean
+status, the worst class of failure this system can have. The cost is that compile
+reads the run directory, not just the transcript; the snapshots are already evidence
+the run keeps. A `value_equals` detector cannot be cross-checked (its parameter value
+is redacted in the transcript) and is refused as an outcome detector; an outcome is
+an answer the page shows, not a control's value.
+
+**`app_version` lives in the app profile.** The transcript records `app_id` and the
+target URL, not a version, and the capability requires one. Adding it to `AppProfile`
+was chosen over stamping it into `run_started` (the committed transcripts lack it,
+so compile would need a fallback anyway) and over a `--app-version` flag (a knob two
+compiles of the same transcript could disagree on). `surface_kind` stays a compiler
+constant while the enum has one member; when a second adapter exists it belongs next
+to `app_version` in the profile.
+
+**Step ids are derived from the action, timeouts are the discovery budget, the
+checkpoint is the success detector.** `navigate_<location>`, `enter_<param>`,
+`click_<name>`, `read_<output>`, suffixed only on collision: readable in every log
+line and stable across re-compiles, where positional ids say nothing and a slug of
+the model's intent differs per run. `postcondition_timeout_ms` is discovery's
+`EXPECT_TIMEOUT_MS` for every step — the budget the step was proven under; deriving
+it from the recorded `elapsed_ms` bakes one local run's timing into the artifact. The
+checkpoint duplicates the success detector because the transcript has no separate
+final assertion and item 4 already treats the two as redundant by design. Every one
+of these is a constant, not a flag: the same inputs must produce the same bytes
+(invariant 11), and the CLI's output is byte-identical across runs.
+
+**A `<param:…>` placeholder anywhere in a step or detector is a compile error.**
+The redactor writes `<param:name>` wherever an input value appeared, so a
+`navigate` to `/member/10001` or a detector quoting the member id would compile into
+a step that sends the placeholder literally. Discovery already refuses text
+expectations that quote a value (item 7); compile checks the serialized action,
+target and postcondition of every kept turn regardless, because replayability across
+inputs must not depend on the loop having caught it.
+
+**Two runs of one goal word their contracts differently; compile requires the typed
+interface to agree, not the prose.** The committed runs named the capability
+`lookup_member_plan_status_and_renewal_date` and `lookup_plan_status_and_renewal_date`
+with different descriptions and the same inputs and outputs. The success run's name
+and description are the artifact's; the business runs must match on input and output
+names and types only.

@@ -1,6 +1,7 @@
 {
   "schema_version": "1.0",
   "app_id": "memberserve",
+  "app_version": "3.1",
   "allowed_locations": [
     "/members/search",
     "/member/*",

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
+from .compiler import CompileError, compile, load
 from .discovery import (
     DiscoveryStatus,
     MalformedTranscript,
@@ -15,6 +16,7 @@ from .discovery import (
     discover,
     read,
 )
+from .policy import Redactor
 from .replay import MissingParameter, replay
 from .schema import AppProfile, Capability, ReplayStatus, dumps
 from .surface import PlaywrightWebSurface
@@ -65,7 +67,11 @@ def _validate(path: Path) -> int:
     capability = _load(path)
     if capability is None:
         return 1
+    _summarize(capability)
+    return 0
 
+
+def _summarize(capability: Capability) -> None:
     outcomes = ", ".join(o.name for o in capability.outcomes)
     print(f"ok  capability {capability.capability_id} v{capability.version}")
     print(
@@ -78,6 +84,30 @@ def _validate(path: Path) -> int:
         f"{len(capability.outputs)} outputs, "
         f"outcomes: {outcomes}"
     )
+
+
+def _compile(transcripts: list[Path], out: Path | None, artifacts: Path) -> int:
+    try:
+        primary, *extras = [load(path) for path in transcripts]
+    except (OSError, MalformedTranscript, CompileError) as exc:
+        print(f"error  {exc}", file=sys.stderr)
+        return 2
+    profile = _load_profile(artifacts, primary.started.app_id)
+    if profile is None:
+        return 2
+    try:
+        capability = compile(primary, extras, profile)
+    except CompileError as exc:
+        print(f"error  {exc}", file=sys.stderr)
+        return 2
+
+    # The transcript was redacted on the way to disk; the artifact goes through the
+    # fixed patterns once more on its own way there (invariant 6).
+    text = Redactor(()).redact(capability.model_dump_json(indent=2)) + "\n"
+    path = out if out is not None else artifacts / f"{capability.capability_id}.json"
+    path.write_text(text)
+    print(f"wrote  {path}")
+    _summarize(capability)
     return 0
 
 
@@ -208,7 +238,22 @@ def app() -> int:
     find.add_argument("--artifacts", type=Path, default=ARTIFACTS_DIR, help="artifacts directory")
     find.add_argument("--evidence-dir", type=Path, default=EVIDENCE_DIR, help="where run evidence goes")
 
+    build = subparsers.add_parser(
+        "compile", help="compile discovery transcripts into a capability artifact"
+    )
+    build.add_argument(
+        "transcripts",
+        type=Path,
+        nargs="+",
+        metavar="TRANSCRIPT",
+        help="the success run first, then any business-outcome runs of the same goal",
+    )
+    build.add_argument("--out", type=Path, help="where to write; default artifacts/<capability_id>.json")
+    build.add_argument("--artifacts", type=Path, default=ARTIFACTS_DIR, help="artifacts directory")
+
     args = parser.parse_args()
+    if args.command == "compile":
+        return _compile(args.transcripts, args.out, args.artifacts)
     if args.command == "discover":
         return _discover(args)
     if args.command == "validate":

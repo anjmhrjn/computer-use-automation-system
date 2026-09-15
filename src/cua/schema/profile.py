@@ -34,6 +34,7 @@ class AppProfile(StrictModel):
 
     schema_version: Literal["1.0"]
     app_id: str
+    app_version: str
     allowed_locations: list[str]
     interstitials: list[Interstitial]
 

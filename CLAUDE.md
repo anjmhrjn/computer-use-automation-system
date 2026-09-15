@@ -74,6 +74,7 @@ uv run python -m app.server --variant b        # tenant variant at :5001
 
 uv run cua discover --goal "<goal>" --target http://127.0.0.1:5000        # needs OPENAI_API_KEY
 uv run cua discover --from-transcript evidence/<run_id>/transcript.jsonl --param member_id=10002   # no API key needed
+uv run cua compile evidence/<success_run>/transcript.jsonl evidence/<business_run>/transcript.jsonl   # -> artifacts/<capability_id>.json
 uv run cua replay artifacts/<capability>.json --param member_id=12345
 uv run cua serve                               # mock operator console at :8000
 ```
@@ -109,7 +110,7 @@ Schema first, and replay before discovery — if replay works on a hand-authored
 | 5 | Error taxonomy, detectors, structured replay result | done |
 | 6 | Policy/allowlist + redactor through the action chokepoint | done |
 | 7 | Discovery loop + `--from-transcript` fixture mode | done |
-| 8 | Compile step: transcript -> Capability | todo |
+| 8 | Compile step: transcript -> Capability. `cua compile` merges a success run with prefix-compatible business-outcome runs; compiled artifact replays both branches | done |
 | 9 | Escalation: control token, intervention request, console, resume. Human actions recorded as before/after AX diff + screenshots + operator note | todo |
 | 10 | Evidence: discovery, clean replay, business-outcome replay, hard-failure replay | todo |
 | 11 | README, tests, REPORT.md | todo |
