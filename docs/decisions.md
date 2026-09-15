@@ -249,3 +249,73 @@ adapter's `observe()` already blocks on document readiness, so the loop is paced
 the surface rather than by a timer. Against a local app this settles in one or two
 iterations; a remote surface would want the adapter to block longer, not the engine to
 sleep.
+
+## Item 5 — Error taxonomy, detectors, structured replay result
+
+**Interstitial detectors live in a per-app profile, not in the artifact and not in
+code.** `artifacts/apps/<app_id>.json` declares each interstitial the app can put in
+front of a step — a detector predicate, the failure kind it maps to, and the control
+that dismisses it, if any — using the same `Predicate` and `TargetDescriptor` types
+the artifact uses. Declaring them in the capability was rejected because "session
+expired" is a property of MemberServe, not of member lookup: every capability would
+repeat the same three entries, and the item-8 compiler has no rules-only source for
+an interstitial the discovery run never hit. Hard-coding them in the engine was
+rejected because it puts app-specific strings in `cua/replay/` and makes every new
+app a code change. The engine takes the profile as an argument; the CLI loads it from
+beside the artifact and refuses to run without one rather than silently running with
+no detectors.
+
+**Interstitials are screened on every observation; business outcomes only on the
+one that satisfied the postcondition.** The item-4 rule keeps outcome detectors off
+the pre-action page. It cannot apply to interstitials, which are exactly the pages
+that stop a postcondition from ever holding, so waiting for the postcondition before
+checking them would turn every interstitial into a `timeout`. Screening the pre-action
+observation as well matters for the 403: "Access denied" is served at `/member/<id>`,
+so `submit_search`'s location postcondition holds on it, and without screening that
+observation the failure surfaces one step later as `target_drift` on
+`read_plan_status`. Screening first attributes it to `submit_search` as
+`permission_denied`, which is the truth.
+
+**Recovery is dismiss, then re-run the step; the ceiling is two dismissals.** After
+clicking the profile's `dismiss` control the engine goes back to the step's own
+observe, because the notice replaced the response and the step's effect is unproven.
+Continuing to wait for the postcondition was rejected: it happens to work for
+`open_search` (Continue lands on the requested page) and never for a step whose
+request the notice ate. Re-running `submit_search` after a dismissal re-clicks an
+emptied form and times out — honestly, with the recovery on the trace. A retry that
+walks back to an earlier step was rejected as control flow the artifact does not
+declare. The ceiling is a module constant, not a knob; hitting it is
+`interstitial_persisted`.
+
+**`replay()` returns a classified result; only caller errors raise.** `ReplayResult`
+carries `status` (`success` / `business_outcome` / `failed`), a nullable `outcome`,
+and a nullable `Failure` with `kind`, `step_id`, expected, observed, and a validator
+tying the three together. Recovered interstitials are `Recovery` entries on the step
+trace; a `Failure` is by definition unrecovered. Keeping the item-4 raise-and-catch
+shape was rejected because every consumer — CLI now, evidence in item 10, the
+console in item 9 — would rebuild the same record from an exception, and a failed run
+would have no step traces at all. `MissingParameter` still raises: nothing ran.
+`timeout` gets no automatic re-action; re-performing a step whose action may have
+landed is worse than a clean failure.
+
+**Permission denied is a hard failure, not a business outcome.** It is a fault class
+the brief names and the natural escalation trigger for item 9. Declaring
+`access_denied` as an outcome would give the caller a clean answer that is
+indistinguishable from a legitimate one and never escalates.
+
+**`act()` is dispatch; `observe()` is the only readiness wait, and it is bounded.**
+Playwright's `goto`, `click` and `wait_for_load_state` default to a 30 s wait and
+raise a Playwright type, so the timeout fault was surfacing after 30 s as a web
+exception above the port (invariant 9) instead of on the step's own budget. The
+adapter now bounds every wait with `ready_timeout_ms` and reports "not settled yet"
+as `SurfaceNotReady`; the engine's poll loop treats that as "not yet" until the step
+deadline says "never". Two things learned the hard way. Chrome suspends renderer-bound
+DevTools commands, with no timeout, while a navigation is pending — `Runtime.evaluate`,
+`DOM.*`, `Accessibility.*`, even `Page.getFrameTree` block until the hung request
+answers — so the adapter tracks in-flight navigation requests from Playwright's
+request/framenavigated/requestfailed events and never touches CDP while one is
+outstanding; it blocks on the `framenavigated` event instead, under the same bound.
+And Playwright 1.63's `no_wait_after=True` makes a form-submitting click time out
+even when the navigation completes, so the default post-click wait is kept and a
+`TimeoutError` from an action is read as "dispatched, navigation pending" when a
+navigation request is outstanding and as `ActionNotApplicable` otherwise.

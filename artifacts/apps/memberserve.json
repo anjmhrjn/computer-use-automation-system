@@ -1,0 +1,73 @@
+{
+  "schema_version": "1.0",
+  "app_id": "memberserve",
+  "interstitials": [
+    {
+      "name": "session_expired",
+      "detector": {
+        "kind": "element_present",
+        "target": {
+          "role": "heading",
+          "accessible_name": "Session expired",
+          "name_match": "exact",
+          "label": null,
+          "nearby_text": [],
+          "container": null,
+          "ordinal": null,
+          "frame_path": [],
+          "evidence": null
+        }
+      },
+      "failure_kind": "session_expired",
+      "dismiss": null
+    },
+    {
+      "name": "maintenance_notice",
+      "detector": {
+        "kind": "element_present",
+        "target": {
+          "role": "heading",
+          "accessible_name": "Scheduled maintenance",
+          "name_match": "exact",
+          "label": null,
+          "nearby_text": [],
+          "container": null,
+          "ordinal": null,
+          "frame_path": [],
+          "evidence": null
+        }
+      },
+      "failure_kind": "interstitial_persisted",
+      "dismiss": {
+        "role": "button",
+        "accessible_name": "Continue",
+        "name_match": "exact",
+        "label": null,
+        "nearby_text": [],
+        "container": null,
+        "ordinal": null,
+        "frame_path": [],
+        "evidence": null
+      }
+    },
+    {
+      "name": "access_denied",
+      "detector": {
+        "kind": "element_present",
+        "target": {
+          "role": "heading",
+          "accessible_name": "Access denied",
+          "name_match": "exact",
+          "label": null,
+          "nearby_text": [],
+          "container": null,
+          "ordinal": null,
+          "frame_path": [],
+          "evidence": null
+        }
+      },
+      "failure_kind": "permission_denied",
+      "dismiss": null
+    }
+  ]
+}

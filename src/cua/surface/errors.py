@@ -63,3 +63,8 @@ class StaleNode(SurfaceError):
 
 class ActionNotApplicable(SurfaceError):
     pass
+
+
+class SurfaceNotReady(SurfaceError):
+    """The surface could not produce a settled observation within its readiness
+    bound. Not a failure by itself: the caller's own deadline decides that."""

@@ -5,32 +5,52 @@ one call per frame, stitched into a single element graph keyed by iframe titles.
 Acting on a resolved node stamps a one-off attribute on it over CDP and hands the
 resulting locator to Playwright, so its actionability checks (visible, enabled,
 stable) do the waiting; no fixed delay anywhere.
+
+`act()` is dispatch and `observe()` is the only readiness wait, bounded by
+`ready_timeout_ms`: a page that is still loading when the bound elapses is reported
+as `SurfaceNotReady`, and the replay engine's own step deadline decides how long
+that may go on. Chrome suspends renderer-bound DevTools commands while a navigation
+is pending, with no timeout, so the adapter tracks in-flight navigation requests
+itself and never touches CDP while one is outstanding. Nothing Playwright-typed
+leaves this module.
 """
 
 from __future__ import annotations
 
-import re
+import time
 import uuid
 from types import TracebackType
 from typing import Any
 from urllib.parse import urljoin, urlsplit
 
-from playwright.sync_api import Browser, CDPSession, Locator, Page, Playwright, sync_playwright
+from playwright.sync_api import (
+    Browser,
+    CDPSession,
+    Frame,
+    Locator,
+    Page,
+    Playwright,
+    Request,
+    TimeoutError as PlaywrightTimeout,
+    sync_playwright,
+)
 
+from . import ax
 from .actions import Click, Navigate, ReadText, SelectOption, SurfaceAction, TypeText
-from .errors import ActionNotApplicable, StaleNode
+from .errors import ActionNotApplicable, StaleNode, SurfaceNotReady
 from .graph import ElementNode, Observation
 
 TAG = "data-cua-node"
-_WS = re.compile(r"\s+")
-_LABEL_SOURCES = {"labelfor", "label", "labelwrapped"}
 _SKIPPED_ROLES = {"InlineTextBox"}
 
 
 class PlaywrightWebSurface:
-    def __init__(self, base_url: str, headless: bool = False) -> None:
+    def __init__(
+        self, base_url: str, headless: bool = False, ready_timeout_ms: int = 2000
+    ) -> None:
         self._base_url = base_url
         self._headless = headless
+        self._ready_timeout_ms = ready_timeout_ms
         self._playwright: Playwright | None = None
         self._browser: Browser | None = None
         self._page: Page | None = None
@@ -40,11 +60,17 @@ class PlaywrightWebSurface:
         # stale, even when Chrome would still recognise it.
         self._handles: dict[str, int] = {}
         self._sequence = 0
+        # Navigation requests issued but not yet answered. While any is outstanding
+        # the renderer is unreachable over CDP, so observe() must not try.
+        self._pending: set[Request] = set()
 
     def __enter__(self) -> PlaywrightWebSurface:
         self._playwright = sync_playwright().start()
         self._browser = self._playwright.chromium.launch(headless=self._headless)
         self._page = self._browser.new_page()
+        self._page.on("request", self._on_request)
+        self._page.on("framenavigated", self._on_committed)
+        self._page.on("requestfailed", lambda request: self._pending.discard(request))
         self._cdp = self._page.context.new_cdp_session(self._page)
         self._cdp.send("DOM.enable")
         self._cdp.send("Accessibility.enable")
@@ -73,10 +99,33 @@ class PlaywrightWebSurface:
             raise RuntimeError("surface is not open; use it as a context manager")
         return self._cdp
 
+    def _on_request(self, request: Request) -> None:
+        if request.is_navigation_request():
+            self._pending.add(request)
+
+    def _on_committed(self, frame: Frame) -> None:
+        self._pending = {r for r in self._pending if r.frame != frame}
+
+    def _settle(self) -> None:
+        """Block until no navigation is outstanding in any frame, then until the
+        document is parsed. Every wait here is on an event, and one bound caps all
+        of them together."""
+        deadline = time.monotonic() + self._ready_timeout_ms / 1000
+        try:
+            while self._pending:
+                remaining_ms = (deadline - time.monotonic()) * 1000
+                if remaining_ms <= 0:
+                    raise SurfaceNotReady(f"navigation not settled within {self._ready_timeout_ms}ms")
+                # The waiter resolves before the listener runs, so apply it here too.
+                self._on_committed(self.page.wait_for_event("framenavigated", timeout=remaining_ms))
+            self.page.wait_for_load_state("domcontentloaded", timeout=self._ready_timeout_ms)
+        except PlaywrightTimeout as exc:
+            raise SurfaceNotReady(f"navigation not settled within {self._ready_timeout_ms}ms") from exc
+
     # -- observe -----------------------------------------------------------------
 
     def observe(self) -> Observation:
-        self.page.wait_for_load_state("domcontentloaded")
+        self._settle()
         root = self.cdp.send("Page.getFrameTree")["frameTree"]
         self._sequence += 1
         handles: dict[str, int] = {}
@@ -102,38 +151,38 @@ class PlaywrightWebSurface:
 
         order = 0
 
-        def visit(ax: dict[str, Any], parent_id: str | None) -> None:
+        def visit(raw: dict[str, Any], parent_id: str | None) -> None:
             nonlocal order
-            role = _value(ax.get("role"))
-            if ax.get("ignored") or role in _SKIPPED_ROLES:
-                for child in ax.get("childIds", []):
+            role = ax.value(raw.get("role"))
+            if raw.get("ignored") or role in _SKIPPED_ROLES:
+                for child in raw.get("childIds", []):
                     if child in by_id:
                         visit(by_id[child], parent_id)
                 return
-            node_id = prefix + str(ax["nodeId"])
-            name = _value(ax.get("name"))
+            node_id = prefix + str(raw["nodeId"])
+            name = ax.value(raw.get("name"))
             node = ElementNode(
                 node_id=node_id,
                 role=role,
                 name=name,
-                value=_value(ax["value"]) if "value" in ax else None,
-                text=_text(ax, by_id),
-                label=_label(ax) or _term_for(ax, by_id),
+                value=ax.value(raw["value"]) if "value" in raw else None,
+                text=ax.text(raw, by_id),
+                label=ax.label(raw) or ax.term_for(raw, by_id),
                 frame_path=list(frame_path),
                 parent_id=parent_id,
                 order=order,
             )
             order += 1
             out.append(node)
-            handles[node_id] = ax["backendDOMNodeId"]
+            handles[node_id] = raw["backendDOMNodeId"]
             if role == "Iframe":
                 described = self.cdp.send(
-                    "DOM.describeNode", {"backendNodeId": ax["backendDOMNodeId"]}
+                    "DOM.describeNode", {"backendNodeId": raw["backendDOMNodeId"]}
                 )["node"]
                 child_frame = described.get("frameId")
                 if child_frame is not None:
                     iframe_titles[child_frame] = name
-            for child in ax.get("childIds", []):
+            for child in raw.get("childIds", []):
                 if child in by_id:
                     visit(by_id[child], node_id)
 
@@ -150,7 +199,16 @@ class PlaywrightWebSurface:
         if isinstance(action, Navigate):
             if node is not None:
                 raise ActionNotApplicable("navigate takes no target node")
-            self.page.goto(urljoin(self._base_url, action.location), wait_until="domcontentloaded")
+            try:
+                self.page.goto(
+                    urljoin(self._base_url, action.location),
+                    wait_until="domcontentloaded",
+                    timeout=self._ready_timeout_ms,
+                )
+            except PlaywrightTimeout:
+                # The navigation is in flight; whether it ever lands is observe()'s
+                # report, and the engine's step deadline bounds it.
+                pass
             return None
         if node is None:
             raise ActionNotApplicable(f"{type(action).__name__} requires a target node")
@@ -160,14 +218,25 @@ class PlaywrightWebSurface:
             return node.text
 
         locator = self._locate(node)
-        if isinstance(action, Click):
-            locator.click()
-        elif isinstance(action, TypeText):
-            locator.fill(action.text)
-        elif isinstance(action, SelectOption):
-            locator.select_option(label=action.option)
-        else:
-            raise ActionNotApplicable(f"unsupported action {type(action).__name__}")
+        timeout = self._ready_timeout_ms
+        try:
+            if isinstance(action, Click):
+                # A click that starts a navigation must not wait for it to finish.
+                locator.click(timeout=timeout)
+            elif isinstance(action, TypeText):
+                locator.fill(action.text, timeout=timeout)
+            elif isinstance(action, SelectOption):
+                locator.select_option(label=action.option, timeout=timeout)
+            else:
+                raise ActionNotApplicable(f"unsupported action {type(action).__name__}")
+        except PlaywrightTimeout as exc:
+            if self._pending:
+                # The action happened and started a navigation that has not answered
+                # yet; that is observe()'s report, not an action failure.
+                return None
+            raise ActionNotApplicable(
+                f"{node.role} {node.name!r} not actionable within {timeout}ms"
+            ) from exc
         return None
 
     def _locate(self, node: ElementNode) -> Locator:
@@ -189,58 +258,3 @@ class PlaywrightWebSurface:
                 return locator
         # Observed, but gone from the document since: the page moved under us.
         raise StaleNode(node)
-
-
-# -- AX node helpers ---------------------------------------------------------------
-
-
-def _value(field: dict[str, Any] | None) -> str:
-    if not field:
-        return ""
-    value = field.get("value")
-    return str(value) if value is not None else ""
-
-
-def _text(ax: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> str:
-    if "value" in ax and _value(ax["value"]):
-        return _value(ax["value"])
-    parts: list[str] = []
-
-    def collect(n: dict[str, Any]) -> None:
-        if _value(n.get("role")) == "StaticText":
-            parts.append(_value(n.get("name")))
-            return
-        for child in n.get("childIds", []):
-            if child in by_id:
-                collect(by_id[child])
-
-    collect(ax)
-    return _WS.sub(" ", " ".join(parts)).strip()
-
-
-def _label(ax: dict[str, Any]) -> str | None:
-    for source in ax.get("name", {}).get("sources", []):
-        if source.get("type") != "relatedElement" or "value" not in source:
-            continue
-        if source.get("nativeSource") in _LABEL_SOURCES or source.get("attribute") == "aria-labelledby":
-            return _value(source["value"]) or None
-    return None
-
-
-def _term_for(ax: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> str | None:
-    """A `definition` is labelled by the `term` that precedes it in its list."""
-    if _value(ax.get("role")) != "definition":
-        return None
-    parent = by_id.get(ax.get("parentId", ""))
-    if parent is None:
-        return None
-    last_term: str | None = None
-    for sibling_id in parent.get("childIds", []):
-        sibling = by_id.get(sibling_id)
-        if sibling is None:
-            continue
-        if sibling["nodeId"] == ax["nodeId"]:
-            return last_term
-        if _value(sibling.get("role")) == "term":
-            last_term = _value(sibling.get("name")) or None
-    return None

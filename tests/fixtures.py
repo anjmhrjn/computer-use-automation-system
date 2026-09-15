@@ -3,8 +3,17 @@ Plain functions, not fixtures, so a test can build one and then mutate a copy.""
 
 from __future__ import annotations
 
-from cua.schema import ContainerHint, NameMatch, TargetDescriptor
+import json
+from pathlib import Path
+
+from cua.schema import AppProfile, ContainerHint, NameMatch, TargetDescriptor
 from cua.surface import ElementNode, Observation
+
+PROFILE = Path(__file__).resolve().parents[1] / "artifacts" / "apps" / "memberserve.json"
+
+
+def profile() -> AppProfile:
+    return AppProfile.model_validate(json.loads(PROFILE.read_text()))
 
 
 def node(
@@ -100,3 +109,44 @@ def with_value(observation: Observation, node_id: str, value: str) -> Observatio
         for n in observation.nodes
     ]
     return observation.model_copy(update={"nodes": nodes})
+
+
+def interstitial_page(heading: str, alert: str, location: str, *, dismiss: str | None = None) -> Observation:
+    """An interstitial as MemberServe serves one: heading, alert, and optionally a
+    single dismiss button, at the location the automation asked for."""
+    nodes = [
+        node("root", "RootWebArea", "MemberServe", order=0),
+        node("banner", "heading", "Member Services Console", parent="root", order=1),
+        node("h", "heading", heading, parent="root", order=2),
+        node("alert", "alert", alert, parent="root", order=3),
+    ]
+    if dismiss is not None:
+        nodes.append(node("btn", "button", dismiss, parent="root", order=4))
+    return Observation(location=location, nodes=nodes)
+
+
+def session_expired_page() -> Observation:
+    return interstitial_page("Session expired", "Your session has expired.", "/members/search")
+
+
+def maintenance_page() -> Observation:
+    return interstitial_page(
+        "Scheduled maintenance", "MemberServe will be unavailable.", "/members/search", dismiss="Continue"
+    )
+
+
+def forbidden_page() -> Observation:
+    return interstitial_page(
+        "Access denied", "You do not have permission to view this record.", "/member/20001"
+    )
+
+
+def not_found_page() -> Observation:
+    return Observation(
+        location="/member/99999",
+        nodes=[
+            node("root", "RootWebArea", "MemberServe", order=0),
+            node("h", "heading", "Member 99999", parent="root", order=1),
+            node("status", "status", "No member found for id 99999.", parent="root", order=2),
+        ],
+    )

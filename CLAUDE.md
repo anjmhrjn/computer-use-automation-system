@@ -31,7 +31,7 @@ src/
     console/       FastAPI mock operator console
     cli.py         discover | replay | serve
 app/             MemberServe 3.1 + variant-b (Flask). Scaffolding, not a deliverable.
-artifacts/       Saved capabilities (JSON) and tenant overlays
+artifacts/       Saved capabilities (JSON), per-app profiles (apps/<app_id>.json), tenant overlays
 evidence/        One directory per run: structured log, screenshots, AX snapshots, transcript
 docs/decisions.md
 tests/
@@ -106,7 +106,7 @@ Schema first, and replay before discovery — if replay works on a hand-authored
 | 2 | MemberServe 3.1 + seed data + fault injection + variant-b. No real login; session expiry is a fault-injected "session expired" interstitial. One iframe | done |
 | 3 | `Surface` port + `PlaywrightWebSurface` + tiered resolver | done |
 | 4 | Replay engine against the hand-written artifact | done |
-| 5 | Error taxonomy, detectors, structured replay result | todo |
+| 5 | Error taxonomy, detectors, structured replay result | done |
 | 6 | Policy/allowlist + redactor through the action chokepoint | todo |
 | 7 | Discovery loop + `--from-transcript` fixture mode | todo |
 | 8 | Compile step: transcript -> Capability | todo |

@@ -5,6 +5,7 @@ from .errors import (
     ResolutionError,
     StaleNode,
     SurfaceError,
+    SurfaceNotReady,
     TierTrace,
     Unresolvable,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "Surface",
     "SurfaceAction",
     "SurfaceError",
+    "SurfaceNotReady",
     "TierTrace",
     "TypeText",
     "Unresolvable",

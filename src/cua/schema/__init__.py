@@ -30,18 +30,30 @@ from .predicate import (
     TextPresent,
     ValueEquals,
 )
-from .result import ReplayResult, StepTrace
+from .profile import AppProfile, Interstitial
+from .result import (
+    Failure,
+    FailureKind,
+    Recovery,
+    ReplayResult,
+    ReplayStatus,
+    StepTrace,
+)
 from .target import ContainerHint, EvidenceRef, TargetDescriptor
 
 __all__ = [
     "SCHEMA_VERSION",
     "Action",
+    "AppProfile",
     "Capability",
     "Click",
     "ContainerHint",
     "ElementAbsent",
     "ElementPresent",
     "EvidenceRef",
+    "Failure",
+    "FailureKind",
+    "Interstitial",
     "LiteralValue",
     "LocationMatches",
     "NameMatch",
@@ -54,7 +66,9 @@ __all__ = [
     "Predicate",
     "Provenance",
     "ReadText",
+    "Recovery",
     "ReplayResult",
+    "ReplayStatus",
     "RiskClass",
     "SelectOption",
     "Sensitivity",

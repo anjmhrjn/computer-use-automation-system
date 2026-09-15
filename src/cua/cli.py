@@ -6,8 +6,8 @@ from pathlib import Path
 
 from pydantic import ValidationError
 
-from .replay import ReplayError, replay
-from .schema import Capability, dumps
+from .replay import MissingParameter, replay
+from .schema import AppProfile, Capability, ReplayStatus, dumps
 from .surface import PlaywrightWebSurface
 
 DEFAULT_TARGET = "http://127.0.0.1:5000"
@@ -22,6 +22,25 @@ def _load(path: Path) -> Capability | None:
 
     try:
         return Capability.model_validate_json(raw)
+    except ValidationError as exc:
+        print(f"invalid  {path}", file=sys.stderr)
+        for error in exc.errors():
+            location = ".".join(str(part) for part in error["loc"]) or "<root>"
+            print(f"    {location}: {error['msg']}", file=sys.stderr)
+        return None
+
+
+def _load_profile(artifact: Path, app_id: str) -> AppProfile | None:
+    """Interstitial knowledge lives next to the artifacts, one file per app. A
+    missing profile is an error, not a run without detectors."""
+    path = artifact.resolve().parent / "apps" / f"{app_id}.json"
+    try:
+        raw = path.read_text()
+    except OSError as exc:
+        print(f"error  no app profile for {app_id!r} at {path}: {exc}", file=sys.stderr)
+        return None
+    try:
+        return AppProfile.model_validate_json(raw)
     except ValidationError as exc:
         print(f"invalid  {path}", file=sys.stderr)
         for error in exc.errors():
@@ -65,19 +84,20 @@ def _replay(path: Path, pairs: list[str], target: str) -> int:
     capability = _load(path)
     params = _parse_params(pairs)
     if capability is None or params is None:
-        return 1
+        return 2
+    profile = _load_profile(path, capability.target.app_id)
+    if profile is None:
+        return 2
 
     try:
         with PlaywrightWebSurface(target) as surface:
-            result = replay(capability, params, surface)
-    except ReplayError as exc:
-        print(f"failed  step {exc.step_id}", file=sys.stderr)
-        print(f"    expected  {exc.expected}", file=sys.stderr)
-        print(f"    observed  {exc.observed}", file=sys.stderr)
-        return 1
+            result = replay(capability, params, surface, profile)
+    except MissingParameter as exc:
+        print(f"error  {exc.expected}; {exc.observed}", file=sys.stderr)
+        return 2
 
     print(result.model_dump_json(indent=2))
-    return 0
+    return 1 if result.status is ReplayStatus.failed else 0
 
 
 def app() -> int:

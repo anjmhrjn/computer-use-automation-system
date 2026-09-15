@@ -1,10 +1,12 @@
-"""Typed replay failures. Item 4 only raises them; classification into business
-outcome / recoverable / hard failure is item 5's job. Every error carries the step it
-happened on, what was expected, and what was observed instead."""
+"""Typed replay failures. Every error carries the step it happened on, what was
+expected, and what was observed instead. `replay()` catches all of them except
+`MissingParameter`, which is a caller error raised before anything runs, and
+reports them as a classified `Failure` on the result (see `classify.py`)."""
 
 from __future__ import annotations
 
-from cua.surface import ResolutionError
+from cua.schema import Interstitial
+from cua.surface import Observation, ResolutionError
 
 
 class ReplayError(Exception):
@@ -35,3 +37,21 @@ class PostconditionTimeout(ReplayError):
 
 class CheckpointFailed(ReplayError):
     pass
+
+
+class InterstitialDetected(ReplayError):
+    """An interstitial that could not be, or can no longer be, dismissed."""
+
+    def __init__(
+        self,
+        step_id: str,
+        interstitial: Interstitial,
+        attempts: int,
+        observation: Observation | None = None,
+    ) -> None:
+        self.interstitial = interstitial
+        self.observation = observation
+        observed = f"interstitial {interstitial.name!r}"
+        if attempts:
+            observed += f" still present after {attempts} dismissal(s)"
+        super().__init__(step_id, "no interstitial", observed)
