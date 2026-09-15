@@ -13,14 +13,18 @@ step and the checkpoint, because it binds outputs that do not exist earlier.
 
 Failures never raise out of `replay()`; they come back classified on the result.
 The one exception is `MissingParameter`, a caller error raised before the run.
+Every string that leaves as a failure or an event passes the run's redactor
+(invariant 6); outputs do not, they are the answer the caller asked for.
 """
 
 from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
+from typing import TextIO
 
 from cua import schema
+from cua.policy import Policy, PolicyError, Redactor
 from cua.schema import (
     AppProfile,
     Capability,
@@ -30,6 +34,7 @@ from cua.schema import (
     Recovery,
     ReplayResult,
     ReplayStatus,
+    RiskClass,
     Step,
     StepTrace,
 )
@@ -57,6 +62,7 @@ from .errors import (
     ReplayError,
     TargetUnresolved,
 )
+from .events import EventLog
 from .predicates import describe, holds
 from .session import Session
 
@@ -70,21 +76,32 @@ class _Run:
     session: Session
     outputs: dict[str, str] = field(default_factory=dict)
     traces: list[StepTrace] = field(default_factory=list)
-    step_id: str = "<start>"
+
+    @property
+    def step_id(self) -> str:
+        return self.session.step_id
 
 
 def replay(
-    capability: Capability, params: dict[str, str], surface: Surface, profile: AppProfile
+    capability: Capability,
+    params: dict[str, str],
+    surface: Surface,
+    profile: AppProfile,
+    *,
+    approve_risky: bool = False,
+    log_stream: TextIO | None = None,
 ) -> ReplayResult:
     _check_params(capability, params)
     if profile.app_id != capability.target.app_id:
         raise ValueError(
             f"profile is for {profile.app_id!r}, capability targets {capability.target.app_id!r}"
         )
-    run = _Run(capability, profile, Session(surface, params))
+    log = EventLog(log_stream, Redactor.for_run(capability, params))
+    policy = Policy(tuple(profile.allowed_locations), approve_risky)
+    run = _Run(capability, profile, Session(surface, params, policy, log))
     try:
         return _execute(run)
-    except (ReplayError, SurfaceError) as exc:
+    except (ReplayError, SurfaceError, PolicyError) as exc:
         return _result(run, None, to_failure(exc, run.step_id))
 
 
@@ -94,7 +111,7 @@ def _execute(run: _Run) -> ReplayResult:
     success = next(o for o in capability.outcomes if o.kind is OutcomeKind.success)
 
     for step in capability.steps:
-        run.step_id = step.step_id
+        run.session.step_id = step.step_id
         observation = _run_step(step, run)
         for outcome in business:
             if holds(outcome.detector, observation, run.session):
@@ -127,14 +144,14 @@ def _run_step(step: Step, run: _Run) -> Observation:
                 Recovery(interstitial=blocked.interstitial.name, attempt=len(recoveries) + 1)
             )
             continue
-        run.traces.append(
-            StepTrace(
-                step_id=step.step_id,
-                resolved_tier=tier,
-                elapsed_ms=int((time.monotonic() - started) * 1000),
-                recoveries=recoveries,
-            )
+        trace = StepTrace(
+            step_id=step.step_id,
+            resolved_tier=tier,
+            elapsed_ms=int((time.monotonic() - started) * 1000),
+            recoveries=recoveries,
         )
+        run.traces.append(trace)
+        run.session.log.emit("step_completed", **trace.model_dump())
         return observation
 
 
@@ -150,7 +167,7 @@ def _attempt(step: Step, run: _Run, attempts: int) -> tuple[Observation, str | N
             raise TargetUnresolved(step.step_id, exc) from exc
         node, tier = resolution.node, resolution.tier
 
-    read = session.act(_to_surface_action(step, session), node)
+    read = session.act(_to_surface_action(step, session), node, step.risk)
     if isinstance(step.action, schema.ReadText):
         run.outputs[step.action.bind_to] = read or ""
 
@@ -171,7 +188,11 @@ def _dismiss(step: Step, blocked: InterstitialDetected, run: _Run) -> None:
         resolution = resolve(blocked.observation, dismiss)
     except ResolutionError as exc:
         raise TargetUnresolved(step.step_id, exc) from exc
-    run.session.act(Click(), resolution.node)
+    # Dismissing a notice is the profile's own control, not the step's action.
+    run.session.act(Click(), resolution.node, RiskClass.reversible)
+    run.session.log.emit(
+        "interstitial_dismissed", step_id=step.step_id, interstitial=blocked.interstitial.name
+    )
 
 
 def _await_postcondition(step: Step, run: _Run, attempts: int) -> Observation:
@@ -224,8 +245,14 @@ def _summary(observation: Observation) -> str:
 
 def _result(run: _Run, outcome: OutcomeSpec | None, failure: Failure | None) -> ReplayResult:
     capability = run.capability
+    log = run.session.log
     if outcome is None:
         assert failure is not None
+        redact = log.redactor.redact
+        failure = failure.model_copy(
+            update={"expected": redact(failure.expected), "observed": redact(failure.observed)}
+        )
+        log.emit("run_finished", status="failed", outcome=None, failure_kind=failure.kind.value)
         return ReplayResult(
             capability_id=capability.capability_id,
             version=capability.version,
@@ -245,6 +272,7 @@ def _result(run: _Run, outcome: OutcomeSpec | None, failure: Failure | None) -> 
     status = (
         ReplayStatus.success if outcome.kind is OutcomeKind.success else ReplayStatus.business_outcome
     )
+    log.emit("run_finished", status=status.value, outcome=outcome.name, failure_kind=None)
     return ReplayResult(
         capability_id=capability.capability_id,
         version=capability.version,

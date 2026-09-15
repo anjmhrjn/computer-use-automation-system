@@ -80,7 +80,7 @@ def _parse_params(pairs: list[str]) -> dict[str, str] | None:
     return params
 
 
-def _replay(path: Path, pairs: list[str], target: str) -> int:
+def _replay(path: Path, pairs: list[str], target: str, approve_risky: bool) -> int:
     capability = _load(path)
     params = _parse_params(pairs)
     if capability is None or params is None:
@@ -91,7 +91,14 @@ def _replay(path: Path, pairs: list[str], target: str) -> int:
 
     try:
         with PlaywrightWebSurface(target) as surface:
-            result = replay(capability, params, surface, profile)
+            result = replay(
+                capability,
+                params,
+                surface,
+                profile,
+                approve_risky=approve_risky,
+                log_stream=sys.stderr,
+            )
     except MissingParameter as exc:
         print(f"error  {exc.expected}; {exc.observed}", file=sys.stderr)
         return 2
@@ -117,12 +124,17 @@ def app() -> int:
         "--param", action="append", default=[], metavar="NAME=VALUE", help="capability input"
     )
     run.add_argument("--target", default=DEFAULT_TARGET, help="base URL of the app")
+    run.add_argument(
+        "--approve-risky",
+        action="store_true",
+        help="allow risky-class steps to execute; without it they halt the run",
+    )
 
     args = parser.parse_args()
     if args.command == "validate":
         return _validate(args.path)
     if args.command == "replay":
-        return _replay(args.path, args.param, args.target)
+        return _replay(args.path, args.param, args.target, args.approve_risky)
     sys.stdout.write(dumps())
     return 0
 

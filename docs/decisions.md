@@ -319,3 +319,57 @@ And Playwright 1.63's `no_wait_after=True` makes a form-submitting click time ou
 even when the navigation completes, so the default post-click wait is kept and a
 `TimeoutError` from an action is read as "dispatched, navigation pending" when a
 navigation request is outstanding and as `ActionNotApplicable` otherwise.
+
+## Item 6 — Policy, allowlist, redactor
+
+**The location allowlist is in the app profile, not the artifact.** `AppProfile`
+gains `allowed_locations`, fnmatch patterns over the opaque location string the
+surface reports, and `Session.act()` refuses any action while the surface is
+elsewhere — or, for a navigate, any destination elsewhere. Trusting the capability's
+own `target.location_pattern` was rejected: a compiled artifact would be
+allowlisting itself, and a discovery run that wandered could emit `*`. A third file
+(`policy.json`) was rejected as a second per-app file for one list; the profile is
+already the operator-owned, per-app, loaded-beside-the-artifact place. The list must
+name every location the app legitimately puts a control at, including where its own
+interstitials land: MemberServe re-fires an `until_cleared` maintenance notice on the
+`POST /continue` that dismisses it, so `/continue` is on the list. Exempting dismiss
+clicks from the check instead was rejected because it makes the profile's own
+`dismiss` descriptor the one action the guardrail does not see.
+
+**Denials are failures on the result; `approval_required` is the seam for item 9.**
+A risky step without `--approve-risky` halts as `FailureKind.approval_required` at
+that step, with the step traces before it intact; an off-allowlist action halts as
+`policy_denied`. Both are refused *before* dispatch, so the surface never sees the
+action — the fake-surface tests assert an empty action list, not just a failure
+kind. Raising instead was rejected under the item-5 rule that only caller errors
+raise. Building an `InterventionRequest` now was rejected as scaffolding into item
+9; when it exists, `approval_required` is the halt point it turns into a handoff.
+
+**`act()` takes the risk class explicitly.** The engine passes `step.risk`; the
+interstitial dismiss passes `reversible`, because clicking the profile's own
+Continue is not the step's action. Holding "current step" on the session instead was
+rejected: the policy check should be a pure function of the action, the risk, the
+location and the policy, testable without an engine. The session does hold the last
+observed location and the current `step_id`, both for the event log.
+
+**Redaction is keyed by input sensitivity and bounded at token edges.** The redactor
+is built from the run's own parameters: every `pii`/`secret` input's value is
+replaced by `<param:name>` wherever it appears, longest value first, with
+`(?<!\w)…(?!\w)` around it so a value of `"1"` does not shred every digit. `none`
+inputs are left alone, because a plan name or a status is exactly the kind of value
+that also appears legitimately in outputs. A fixed pattern set (bearer/api-key/`sk-`
+tokens, email, SSN, US phone) catches shapes that arrived from the page rather than
+from a parameter. Redacting every parameter regardless of sensitivity was rejected
+for the same reason; the `Sensitivity` docstring already said it drives redaction.
+Outputs are not redacted: they are the answer the caller asked for, and
+`OutputSpec` carries no sensitivity until an artifact needs one.
+
+**The event log cannot exist without a redactor, and redacts whole lines.**
+`EventLog(stream, redactor)` serialises each event and passes the serialised line
+through `redact` before writing, so there is no field a future caller can add that
+bypasses invariant 6. On top of that, the `action` event carries the action kind,
+the risk, the location and the target's role and name, never the typed or selected
+text — so a `none`-sensitivity value never reaches the log even before redaction.
+Failure strings on the result are redacted in the engine when the result is built,
+so the `ReplayResult` is clean at source rather than at each consumer. The CLI
+writes events to stderr and keeps stdout for the result JSON.

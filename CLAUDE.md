@@ -107,7 +107,7 @@ Schema first, and replay before discovery — if replay works on a hand-authored
 | 3 | `Surface` port + `PlaywrightWebSurface` + tiered resolver | done |
 | 4 | Replay engine against the hand-written artifact | done |
 | 5 | Error taxonomy, detectors, structured replay result | done |
-| 6 | Policy/allowlist + redactor through the action chokepoint | todo |
+| 6 | Policy/allowlist + redactor through the action chokepoint | done |
 | 7 | Discovery loop + `--from-transcript` fixture mode | todo |
 | 8 | Compile step: transcript -> Capability | todo |
 | 9 | Escalation: control token, intervention request, console, resume. Human actions recorded as before/after AX diff + screenshots + operator note | todo |

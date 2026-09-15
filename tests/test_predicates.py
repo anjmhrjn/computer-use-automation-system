@@ -15,6 +15,7 @@ from cua.schema import (
 from cua.surface import ElementNode, Observation, Surface
 
 from .fixtures import descriptor, record_frame, search_page, with_value
+from .fixtures import session as make_session
 
 
 class NoSurface:
@@ -29,7 +30,7 @@ class NoSurface:
 
 def session(**params: str) -> Session:
     surface: Surface = NoSurface()
-    return Session(surface, params)
+    return make_session(surface, params)
 
 
 def test_element_present() -> None:

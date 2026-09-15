@@ -29,6 +29,7 @@ from .fixtures import (
     profile,
     record_frame,
     search_page,
+    session,
     session_expired_page,
 )
 
@@ -42,7 +43,7 @@ class NoSurface:
 
 
 def _session() -> Session:
-    return Session(NoSurface(), {})
+    return session(NoSurface())
 
 
 @pytest.mark.parametrize(

@@ -186,10 +186,10 @@ def test_hang_after_a_click_is_still_a_timeout(
 
     original = Session.act
 
-    def arm_before_click(self: Session, action: object, node: object) -> str | None:
+    def arm_before_click(self: Session, action: object, node: object, risk: object) -> str | None:
         if isinstance(action, Click):
             arm(base_url, "timeout")
-        return original(self, action, node)  # type: ignore[arg-type]
+        return original(self, action, node, risk)  # type: ignore[arg-type]
 
     monkeypatch.setattr(Session, "act", arm_before_click)
     result = run(base_url, with_timeout(raw, 2, 1500), profile, "10001")

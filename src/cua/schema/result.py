@@ -21,6 +21,8 @@ class FailureKind(str, Enum):
     target_drift = "target_drift"
     checkpoint_failed = "checkpoint_failed"
     surface_error = "surface_error"
+    policy_denied = "policy_denied"
+    approval_required = "approval_required"
 
 
 class Failure(StrictModel):

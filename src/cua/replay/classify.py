@@ -4,6 +4,7 @@ the table is not a replay failure and propagates."""
 
 from __future__ import annotations
 
+from cua.policy import ApprovalRequired, PolicyDenied, PolicyError
 from cua.schema import AppProfile, Failure, FailureKind, Interstitial
 from cua.surface import Observation, SurfaceError
 
@@ -25,7 +26,7 @@ def screen(observation: Observation, profile: AppProfile, session: Session) -> I
     return None
 
 
-def to_failure(exc: ReplayError | SurfaceError, step_id: str) -> Failure:
+def to_failure(exc: ReplayError | SurfaceError | PolicyError, step_id: str) -> Failure:
     if isinstance(exc, InterstitialDetected):
         kind = exc.interstitial.failure_kind
     elif isinstance(exc, PostconditionTimeout):
@@ -34,6 +35,10 @@ def to_failure(exc: ReplayError | SurfaceError, step_id: str) -> Failure:
         kind = FailureKind.target_drift
     elif isinstance(exc, CheckpointFailed):
         kind = FailureKind.checkpoint_failed
+    elif isinstance(exc, PolicyDenied):
+        kind = FailureKind.policy_denied
+    elif isinstance(exc, ApprovalRequired):
+        kind = FailureKind.approval_required
     elif isinstance(exc, SurfaceError):
         kind = FailureKind.surface_error
     else:
@@ -41,4 +46,6 @@ def to_failure(exc: ReplayError | SurfaceError, step_id: str) -> Failure:
 
     if isinstance(exc, ReplayError):
         return Failure(kind=kind, step_id=exc.step_id, expected=exc.expected, observed=exc.observed)
+    if isinstance(exc, PolicyError):
+        return Failure(kind=kind, step_id=step_id, expected=exc.expected, observed=exc.observed)
     return Failure(kind=kind, step_id=step_id, expected="surface action to complete", observed=str(exc))

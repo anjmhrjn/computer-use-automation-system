@@ -8,12 +8,14 @@ from .errors import (
     ReplayError,
     TargetUnresolved,
 )
+from .events import EventLog
 from .predicates import describe, holds
 from .session import Session
 
 __all__ = [
     "MAX_DISMISSALS",
     "CheckpointFailed",
+    "EventLog",
     "InterstitialDetected",
     "MissingParameter",
     "PostconditionTimeout",

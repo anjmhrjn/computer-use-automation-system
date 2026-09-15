@@ -1,6 +1,11 @@
 {
   "schema_version": "1.0",
   "app_id": "memberserve",
+  "allowed_locations": [
+    "/members/search",
+    "/member/*",
+    "/continue"
+  ],
   "interstitials": [
     {
       "name": "session_expired",

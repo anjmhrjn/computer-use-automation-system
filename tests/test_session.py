@@ -3,49 +3,19 @@ and only there (invariant 4). A fake surface records what it is asked."""
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
 from cua.replay import MissingParameter, Session, replay
-from cua.schema import Capability
-from cua.surface import ElementNode, Navigate, Observation, ReadText, SurfaceAction, TypeText
+from cua.schema import Capability, RiskClass
+from cua.surface import ElementNode, SurfaceAction, TypeText
 
-from .fixtures import profile, record_frame, search_page, with_value
-
-ARTIFACT = Path(__file__).resolve().parents[1] / "artifacts" / "lookup_member_status.json"
-
-
-class ScriptedSurface:
-    """Serves the search page, then the same page with the id typed, then the record."""
-
-    def __init__(self) -> None:
-        self.acted: list[tuple[SurfaceAction, str | None]] = []
-        self.observed = 0
-        self._typed = ""
-
-    def observe(self) -> Observation:
-        self.observed += 1
-        kinds = [type(a) for a, _ in self.acted]
-        if kinds.count(Navigate) == 0:
-            return Observation(location="/", nodes=[])
-        if not any(k.__name__ == "Click" for k in kinds):
-            return with_value(search_page(), "box", self._typed)
-        return record_frame()
-
-    def act(self, action: SurfaceAction, node: ElementNode | None) -> str | None:
-        self.acted.append((action, node.node_id if node else None))
-        if isinstance(action, TypeText):
-            self._typed = action.text
-        if isinstance(action, ReadText) and node is not None:
-            return node.text
-        return None
+from .fixtures import ScriptedSurface, profile
+from .fixtures import capability as load_capability
 
 
 @pytest.fixture
 def capability() -> Capability:
-    return Capability.model_validate(json.loads(ARTIFACT.read_text()))
+    return load_capability()
 
 
 def test_every_action_passes_through_session_act(capability: Capability, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -53,9 +23,9 @@ def test_every_action_passes_through_session_act(capability: Capability, monkeyp
     seen: list[SurfaceAction] = []
     original = Session.act
 
-    def spy(self: Session, action: SurfaceAction, node: ElementNode | None) -> str | None:
+    def spy(self: Session, action: SurfaceAction, node: ElementNode | None, risk: RiskClass) -> str | None:
         seen.append(action)
-        return original(self, action, node)
+        return original(self, action, node, risk)
 
     monkeypatch.setattr(Session, "act", spy)
     result = replay(capability, {"member_id": "10001"}, surface, profile())

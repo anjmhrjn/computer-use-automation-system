@@ -6,14 +6,68 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from cua.schema import AppProfile, ContainerHint, NameMatch, TargetDescriptor
-from cua.surface import ElementNode, Observation
+from cua.policy import Policy, Redactor
+from cua.replay import EventLog, Session
+from cua.schema import AppProfile, Capability, ContainerHint, NameMatch, TargetDescriptor
+from cua.surface import (
+    ElementNode,
+    Navigate,
+    Observation,
+    ReadText,
+    Surface,
+    SurfaceAction,
+    TypeText,
+)
 
-PROFILE = Path(__file__).resolve().parents[1] / "artifacts" / "apps" / "memberserve.json"
+ROOT = Path(__file__).resolve().parents[1]
+PROFILE = ROOT / "artifacts" / "apps" / "memberserve.json"
+ARTIFACT = ROOT / "artifacts" / "lookup_member_status.json"
 
 
 def profile() -> AppProfile:
     return AppProfile.model_validate(json.loads(PROFILE.read_text()))
+
+
+def raw_capability() -> dict:
+    return json.loads(ARTIFACT.read_text())
+
+
+def capability() -> Capability:
+    return Capability.model_validate(raw_capability())
+
+
+def session(surface: Surface, params: dict[str, str] | None = None) -> Session:
+    """A session with a permit-everything policy and a silent log, for tests of
+    things below the chokepoint (predicates, classification)."""
+    return Session(surface, params or {}, Policy(("*",), True), EventLog(None, Redactor(())))
+
+
+class ScriptedSurface:
+    """Serves the search page, then the same page with the id typed, then the record
+    (or whatever `final` is)."""
+
+    def __init__(self, final: Observation | None = None) -> None:
+        self.acted: list[tuple[SurfaceAction, str | None]] = []
+        self.observed = 0
+        self._typed = ""
+        self._final = final if final is not None else record_frame()
+
+    def observe(self) -> Observation:
+        self.observed += 1
+        kinds = [type(a) for a, _ in self.acted]
+        if kinds.count(Navigate) == 0:
+            return Observation(location="/", nodes=[])
+        if not any(k.__name__ == "Click" for k in kinds):
+            return with_value(search_page(), "box", self._typed)
+        return self._final
+
+    def act(self, action: SurfaceAction, node: ElementNode | None) -> str | None:
+        self.acted.append((action, node.node_id if node else None))
+        if isinstance(action, TypeText):
+            self._typed = action.text
+        if isinstance(action, ReadText) and node is not None:
+            return node.text
+        return None
 
 
 def node(
