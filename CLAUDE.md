@@ -104,7 +104,7 @@ Schema first, and replay before discovery — if replay works on a hand-authored
 |---|---|---|
 | 1 | Pydantic models + JSON Schema + one hand-written artifact. Artifact carries `schema_version`, `version`, and `target.app_version` | done |
 | 2 | MemberServe 3.1 + seed data + fault injection + variant-b. No real login; session expiry is a fault-injected "session expired" interstitial. One iframe | done |
-| 3 | `Surface` port + `PlaywrightWebSurface` + tiered resolver | todo |
+| 3 | `Surface` port + `PlaywrightWebSurface` + tiered resolver | done |
 | 4 | Replay engine against the hand-written artifact | todo |
 | 5 | Error taxonomy, detectors, structured replay result | todo |
 | 6 | Policy/allowlist + redactor through the action chokepoint | todo |

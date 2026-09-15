@@ -118,3 +118,76 @@ the thing. That is a unit test in item 6 and one extra evidence run in item 10, 
 against the artifact that already exists. The branch that is *not* demonstrated — a
 human taking over and completing a risky write — is described in the report rather
 than built, because demonstrating it requires a write feature the task does not have.
+
+## Item 3 — Surface port, Playwright adapter, tiered resolver
+
+**Tiers narrow cumulatively; a signal that would leave zero is skipped.** The
+resolver starts with every node of the descriptor's role in its frame and intersects
+with each recorded signal in ranked order — accessible name, container, label, nearby
+text, then ordinal — stopping at the first that leaves exactly one. The rejected
+reading of "fall to the next tier" was independent tiers: try name alone, then
+container alone, and so on. It cannot resolve the hand-written artifact, because no
+single signal separates the site-wide "Search" button from the form's; only
+name-and-container does. A signal that matches nothing is skipped rather than fatal so
+that one renamed label does not kill a target the remaining signals still pin down;
+the skip is recorded in the trace, so a later item can surface "resolved, but a
+recorded signal no longer holds" as a drift warning. More than one node after every
+signal is `Ambiguous`, never the first match (invariant 3). `ordinal` is a 0-based
+index in document order over whatever survives the other signals; it is an explicit
+recorded choice, not a tie-break, and is only consulted last.
+
+**`frame_path` is a scope, not a tier.** Resolution never widens to another frame
+when the named one has no match: the same label in a different frame is a different
+control, and an artifact that silently crossed frames would read the wrong record.
+Container and nearby-text lookups are likewise confined to the node's own frame. This
+means variant-b's renamed iframe (`Record`) fails the base artifact outright, which is
+what the item-12 overlay exists for.
+
+**Acting on an AX-resolved node: stamp a one-off attribute, then a Playwright
+locator.** Playwright exposes no way to build a handle from a CDP backend node id.
+The adapter sets `data-cua-node=<uuid>` on the chosen node over CDP and asks each
+frame for that attribute; the frame answering with exactly one match owns it, and
+Playwright's actionability checks do the waiting. The rejected alternative was raw CDP
+input — `DOM.getBoxModel` plus `Input.dispatchMouseEvent` — with no selector string
+anywhere. It costs roughly four times the code, re-implements visible/enabled/stable
+checks, and has to compose iframe offsets by hand, which is a classic source of
+off-by-a-frame clicks. The tag is an internal handle on a node the accessibility-tree
+resolver already chose; it is not a locating strategy, never appears in an artifact,
+and never crosses the port, so invariants 1 and 9 hold as written.
+
+**Surface actions carry values; the schema's `ValueRef` never reaches the port.**
+`cua/surface/actions.py` is a second, tiny set of action types with concrete strings.
+The alternative — passing the schema `Action` plus a parameter table through the port —
+was rejected because it puts parameter resolution inside every adapter and hands
+adapters a table of values they have no reason to see. As built, the only place a real
+parameter value exists is in memory on its way into one `act()` call, which is what
+invariant 7 wants. `ReadText` still goes through `act()` even though the text is
+already in the observation, so that item 6's chokepoint sees every action, reads
+included.
+
+**Node ids are scoped to one observation, deliberately stricter than Chrome.** CDP
+keeps accessibility node ids stable for the life of a document, so a node observed
+before an action would usually still be valid after it. The adapter nonetheless
+prefixes ids with an observation sequence number, so anything from an earlier snapshot
+raises `StaleNode`. This forces the observe → resolve → act order on every step and
+makes it impossible to act on an element resolved before a previous action changed the
+page. The cost is one extra `observe()` per step in the replay loop; against a local
+app that is milliseconds, and it is the same observation the postcondition needs.
+
+**`nearby_text` is a document-order window.** A nearby string matches if it appears
+in the text of any node within ±10 positions in the same frame. Structural
+definitions — "within the same landmark" or "within the same table row" — were tried
+on paper and rejected: "Find a member" is a heading *outside* the search form, so any
+container-based rule excludes exactly the case the artifact records. The window is a
+heuristic and is ranked as the weakest signal, tried after name, container, and label.
+
+**Adapter details learned from the tree, recorded so they are not re-learned.**
+`Accessibility.getFullAXTree` returns nodes breadth-first, so document order is
+recomputed by walking `childIds`. Chrome's `LayoutTable*` roles are *not* ignored
+nodes; they stay in the graph as ancestors. `InlineTextBox` nodes duplicate their
+`StaticText` parent and are dropped. `name.sources` lists every candidate source; the
+one that applied is the one carrying a `value`. A `definition` has an empty
+accessible name and is labelled by the preceding `term` sibling, which the adapter
+computes so the artifact's `label: "Plan Status"` has something to match.
+`DOM.pushNodesByBackendIdsToFrontend` requires `DOM.getDocument` on the current
+document first, and every navigation is a new document.
