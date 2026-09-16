@@ -8,6 +8,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
+from cua.policy import ApprovalRequired, PolicyDenied
 from cua.replay import (
     CheckpointFailed,
     InterstitialDetected,
@@ -91,6 +92,8 @@ def _unresolvable() -> Unresolvable:
         (CheckpointFailed("s", "x", "y"), FailureKind.checkpoint_failed),
         (StaleNode(node("n", "button", "Go")), FailureKind.surface_error),
         (SurfaceNotReady("still loading"), FailureKind.surface_error),
+        (PolicyDenied("location in allowlist", "/admin"), FailureKind.policy_denied),
+        (ApprovalRequired("approval for risky step", "none"), FailureKind.approval_required),
     ],
 )
 def test_errors_map_to_failure_kinds(exc: Exception, kind: FailureKind) -> None:

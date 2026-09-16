@@ -627,3 +627,39 @@ text node inside the control's user-agent shadow tree, which CDP refuses to tag,
 the adapter now climbs out of shadow trees to the host before stamping — the mask
 lands on the `<input>` itself, wider than the value, never narrower. The
 uncommitted item-9 run `20260915T182422-3bfc25` is left for the author to commit.
+
+## Future work — artifact versioning
+
+**Every compile emits `version: "1.0.0"`, and `cua compile` overwrites whatever is
+at `artifacts/<capability_id>.json`.** The compiler is a pure function of its
+transcripts (invariant 11) and never reads the artifact it is about to replace, so
+it cannot know whether one exists or what version it carried; the CLI then writes
+unconditionally. The `version` field was put in the schema in item 1 so that an
+artifact can be superseded without being confused with its predecessor, but nothing
+in the pipeline sets it to anything else. Two things go wrong today: re-discovering
+a goal after the app changes and compiling the new transcript replaces the old
+artifact under the same id and version, while the replay evidence in `evidence/`
+still cites that id and version; and `capability_id` is `<app_id>.<contract.name>`
+with the name chosen by the model, so two unrelated goals that get the same
+snake_case name collide silently. `--out` is the only escape hatch. This was left
+as is because the single-capability target task never recompiles a changed goal.
+
+**How to implement it, when it is needed.** The bump belongs in the CLI, not in
+`compiler/`: compile stays deterministic and the version is a fact about the
+artifact store, not about the transcripts. `cua compile` reads the existing file at
+the target path (if any), compiles the new capability with a placeholder version,
+and compares the two with `provenance` and `version` masked out. Identical → write
+nothing and report "unchanged". Different only in steps, outcomes' detectors or
+`target.app_version` → patch bump: same contract, same caller code, new procedure.
+Different in `inputs`, `outputs` or the set of outcome names → minor bump if the
+change is additive (a new optional input, a new output, a new business outcome),
+major otherwise: the caller's code has to change. Bumping is refused when the
+`capability_id` matches but the `target.app_id` differs — that is a collision, not a
+successor — and the run tells the author to rename the contract. The first
+artifact for an id is `1.0.0` as now. Replay does not need to change: the artifact
+it is handed is self-describing, and `provenance.transcript_run_id` already says
+which discovery produced it. What would need a decision is retention — whether the
+superseded artifact is kept beside the new one as
+`<capability_id>@<version>.json` so that old evidence stays reproducible, or
+whether git history is enough. Until then, the cheap guard is `cua compile`
+refusing to overwrite an existing path without `--force`.
