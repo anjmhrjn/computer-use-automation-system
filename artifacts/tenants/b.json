@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "tenant_id": "b",
+  "app_id": "memberserve",
+  "renames": {
+    "Member ID": "Member No.",
+    "Search": "Find",
+    "Member search": "Member lookup",
+    "Find a member": "Look up a member",
+    "Member Record": "Member File",
+    "Coverage": "Plan",
+    "Plan Status": "Status",
+    "Renewal Date": "Renews On"
+  },
+  "frames": {
+    "Member Record": "Record"
+  }
+}

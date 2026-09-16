@@ -628,6 +628,57 @@ the adapter now climbs out of shadow trees to the host before stamping — the m
 lands on the `<input>` itself, wider than the value, never narrower. The
 uncommitted item-9 run `20260915T182422-3bfc25` is left for the author to commit.
 
+## Item 12 — variant-b via tenant overlay
+
+**The overlay is a map of base string → tenant string, applied to descriptor signals
+only.** `artifacts/tenants/<tenant_id>.json` carries `renames`, keyed by the strings
+the base artifact records (`Member ID`, `Search`, `Plan Status`, …), and `replay`
+rewrites `accessible_name`, `label`, `nearby_text`, container names and
+`text_present` text wherever a `TargetDescriptor` or predicate appears — steps,
+postconditions, outcome detectors, checkpoint — before the run starts. Whole-string
+match only: rewriting inside a longer string would be a second matcher hidden behind
+`name_match: contains`. Nothing else in the artifact is touched, so `step_id`s,
+intents, locations, parameter names and `capability_id` are those of the base
+artifact and the `ReplayResult` still cites it; the overlay is not a new capability.
+The rejected shape was per-step target overrides keyed by `step_id`: it can express
+structural drift, but item 2 fixed variant-b to renames only precisely so that no
+tenant needs it, and it has to be authored per capability and breaks when a
+recompile renumbers steps. A per-tenant string map is authored once per tenant and
+serves every capability for the app.
+
+**Frame titles are a second map.** The first tenant already broke the flat map:
+variant-b retitles the record iframe `Record` but its heading `Member File`, and the
+base artifact records both as `Member Record`. `frames` renames `frame_path`
+entries and nothing else; `renames` never reaches a `frame_path`. This follows the
+item-3 decision that a frame is a scope, not a name tier, and costs one dictionary
+rather than a per-role or per-field addressing scheme. The alternative — accept the
+limitation and note that the item-1 fixture's heading check is unexpressible — was
+rejected because the compiled artifact only escaped it by chance (its checkpoint is
+the `Renewal Date` definition, not the heading).
+
+**The caller names the tenant; nothing is detected.** `cua replay --tenant b` loads
+the overlay; a missing file or an `app_id` that does not match the artifact is an
+error before anything runs. Two alternatives were considered. Detecting the tenant
+from the surface — each overlay carrying an `identity` predicate evaluated on the
+first observation — is attractive and would fit this file format without changing
+it, but the caller of `replay` is an integrating backend, not a tenant, and it
+already knows which tenant it is serving; the detection would re-derive a fact the
+caller has, and add an ambiguity case (two overlays match) for no gain. Trying the
+base names and falling back to each overlay on failure was rejected outright: it is
+a silent fallback that replays steps twice and hides drift behind a lucky match.
+Consequently `--tenant b` against the base app fails at `enter_member_id` with
+`target_drift`, exactly as the base artifact does against variant-b.
+
+**Unused renames are reported, not rejected.** Because one overlay serves every
+capability for the app, a key a given capability never references is normal, not an
+error; the compiled artifact never reads the `Coverage` group or either heading, so
+three of tenant B's nine renames are unused on that run. The run's first event,
+`overlay_applied`, lists `applied` and `unused` by key so the evidence shows exactly
+what the overlay changed. Provenance stops there: `ReplayResult` did not gain a
+`tenant` field, because the result is the answer to the caller's question and the
+caller supplied the tenant; the events file is where "how the run was configured"
+already lives.
+
 ## Future work — artifact versioning
 
 **Every compile emits `version: "1.0.0"`, and `cua compile` overwrites whatever is

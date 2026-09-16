@@ -1,0 +1,12 @@
+{"ts": 1789569238.0594401, "event": "overlay_applied", "tenant_id": "b", "applied": ["Member ID", "Member search", "Plan Status", "Renewal Date", "Search", "frame:Member Record"], "unused": ["Coverage", "Find a member", "Member Record"]}
+{"ts": 1789569238.068017, "event": "action", "step_id": "navigate_members_search", "kind": "navigate", "risk": "read_only", "location": "blank", "target": null}
+{"ts": 1789569238.09584, "event": "step_completed", "step_id": "navigate_members_search", "resolved_tier": null, "elapsed_ms": 36, "recoveries": []}
+{"ts": 1789569238.147351, "event": "action", "step_id": "enter_member_id", "kind": "typetext", "risk": "reversible", "location": "/members/search", "target": {"role": "textbox", "name": "Member No."}}
+{"ts": 1789569238.174297, "event": "step_completed", "step_id": "enter_member_id", "resolved_tier": "name", "elapsed_ms": 30, "recoveries": []}
+{"ts": 1789569238.212797, "event": "action", "step_id": "click_search", "kind": "click", "risk": "read_only", "location": "/members/search", "target": {"role": "button", "name": "Find"}}
+{"ts": 1789569238.261102, "event": "step_completed", "step_id": "click_search", "resolved_tier": "name", "elapsed_ms": 54, "recoveries": []}
+{"ts": 1789569238.3251898, "event": "action", "step_id": "read_plan_status", "kind": "readtext", "risk": "read_only", "location": "/member/<param:member_id>", "target": {"role": "definition", "name": ""}}
+{"ts": 1789569238.328848, "event": "step_completed", "step_id": "read_plan_status", "resolved_tier": "label", "elapsed_ms": 12, "recoveries": []}
+{"ts": 1789569238.373357, "event": "action", "step_id": "read_renewal_date", "kind": "readtext", "risk": "read_only", "location": "/member/<param:member_id>", "target": {"role": "definition", "name": ""}}
+{"ts": 1789569238.37693, "event": "step_completed", "step_id": "read_renewal_date", "resolved_tier": "label", "elapsed_ms": 7, "recoveries": []}
+{"ts": 1789569238.4113019, "event": "run_finished", "status": "success", "outcome": "plan_status_and_renewal_date_found", "failure_kind": null}

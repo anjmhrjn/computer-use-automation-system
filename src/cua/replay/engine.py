@@ -47,6 +47,7 @@ from cua.schema import (
     RiskClass,
     Step,
     StepTrace,
+    TenantOverlay,
 )
 from cua.surface import (
     Click,
@@ -73,6 +74,7 @@ from .errors import (
 from .events import EventLog
 from .evidence import RunEvidence, snapshot
 from .handoff import handoff, new_run_id
+from .overlay import apply_overlay
 from .predicates import describe, holds
 from .session import Session
 from .wait import await_predicate, screened, summarize
@@ -106,18 +108,29 @@ def replay(
     log_stream: TextIO | None = None,
     escalator: Escalator | None = None,
     evidence_dir: Path | None = None,
+    overlay: TenantOverlay | None = None,
 ) -> ReplayResult:
     _check_params(capability, params)
     if profile.app_id != capability.target.app_id:
         raise ValueError(
             f"profile is for {profile.app_id!r}, capability targets {capability.target.app_id!r}"
         )
+    applied = None
+    if overlay is not None:
+        capability, applied = apply_overlay(capability, overlay)
     redactor = Redactor.for_run(capability, params)
     run_id = new_run_id()
     evidence = None if evidence_dir is None else RunEvidence(evidence_dir / run_id, redactor)
     streams = tuple(s for s in (log_stream, evidence and evidence.events) if s is not None)
     policy = Policy(tuple(profile.allowed_locations), approve_risky)
     session = Session(surface, params, policy, EventLog(streams, redactor))
+    if applied is not None:
+        session.log.emit(
+            "overlay_applied",
+            tenant_id=applied.tenant_id,
+            applied=list(applied.applied),
+            unused=list(applied.unused),
+        )
     run = _Run(capability, profile, session, run_id, evidence)
     try:
         return _replay(run, escalator, evidence_dir)

@@ -115,7 +115,7 @@ Schema first, and replay before discovery — if replay works on a hand-authored
 | 9 | Escalation: control token, intervention request, console, resume. Human actions recorded as before/after AX diff + masked screenshots + operator note. Environment-blocked failures escalate; artifact/guardrail failures never do | done |
 | 10 | Evidence: discovery, clean replay, business-outcome replay, hard-failure replay. Replay writes `evidence/<run_id>/` (events, redacted result, per-step AX + masked PNG, failure state); three replay runs recorded next to the two discovery runs | done |
 | 11 | README, tests, REPORT.md. README is operational only (setup, pipeline, evidence layout, invariant→code map); test audit found the must-have list already covered, one gap closed in `test_classify.py`. REPORT.md is the author's | done |
-| 12 | Stretch: variant-b via tenant overlay | todo |
+| 12 | Stretch: variant-b via tenant overlay. `artifacts/tenants/<id>.json` = base→tenant renames (`renames` for name signals, `frames` for frame titles); `cua replay --tenant <id>` applies it before the run and logs `overlay_applied`. Compiled artifact replays clean on :5001; two evidence runs recorded | done |
 
 Update this table at the end of every session.
 

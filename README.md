@@ -29,7 +29,7 @@ Each command below is one stage. Run them in this order from the repo root.
 # 1. The target app. "MemberServe 3.1" is a self-built hostile legacy UI (Flask, one iframe,
 #    fault injection). Seed members are in app/members.json; 20001 is permission-restricted.
 uv run python -m app.server                        # :5000
-uv run python -m app.server --variant b            # :5001, same app with drifted labels/layout
+uv run python -m app.server --variant b            # :5001, same app, tenant B's labels
 
 # 2. Discovery: the model drives the live app to reach a goal. Writes evidence/<run_id>/.
 uv run cua discover --goal "Look up the plan status and renewal date for member 10001"
@@ -49,6 +49,10 @@ uv run cua schema > schema/capability.schema.json  # regenerate the JSON Schema 
 uv run cua replay artifacts/memberserve.lookup_member_plan_status_and_renewal_date.json --param member_id=10001   # success
 uv run cua replay artifacts/memberserve.lookup_member_plan_status_and_renewal_date.json --param member_id=99999   # business outcome
 uv run cua replay artifacts/memberserve.lookup_member_plan_status_and_renewal_date.json --param member_id=10001 --target http://127.0.0.1:5001   # hard failure: target_drift
+
+#    Tenant overlay: the same artifact against variant-b, with tenant B's renames applied
+#    from artifacts/tenants/b.json before the run. The caller names the tenant; nothing is inferred.
+uv run cua replay artifacts/memberserve.lookup_member_plan_status_and_renewal_date.json --param member_id=10001 --target http://127.0.0.1:5001 --tenant b
 
 # 5. Escalation: hand an environment-blocked failure to a human. Start the mock operator console,
 #    then replay with --console; the run holds control open until the operator resolves it.
@@ -109,6 +113,7 @@ tests/
 | `artifacts/lookup_member_status.json` | Hand-written capability from item 1. The shape discovery had to learn to emit; still the fixture for the replay and adapter tests. |
 | `artifacts/memberserve.lookup_member_plan_status_and_renewal_date.json` | Compiled from the two committed discovery runs. Carries both the success outcome and `member_not_found`. |
 | `artifacts/apps/memberserve.json` | App profile: allowed locations and the interstitial catalogue (detector, dismiss action, failure kind). |
+| `artifacts/tenants/b.json` | Tenant overlay: base→tenant renames of the strings descriptors key on (`renames`), and of frame titles separately (`frames`). Applied by `replay --tenant b`; one file serves every capability for the app. |
 | `schema/capability.schema.json` | JSON Schema for the artifact, generated from the Pydantic models. |
 
 A capability declares `schema_version`, `version`, `target.app_id` /
@@ -132,7 +137,10 @@ Everything under `evidence/` has been through the redactor. Three shapes exist.
 
 **Replay run** — `evidence/20260915T184240-6afcac/` (success),
 `evidence/20260915T184249-f40405/` (business outcome),
-`evidence/20260915T184255-01415b/` (hard failure, `target_drift` against variant-b)
+`evidence/20260915T184255-01415b/` (hard failure, `target_drift` against variant-b),
+`evidence/20260916T103358-43b02b/` (success against variant-b with `--tenant b`; `events.jsonl`
+opens with an `overlay_applied` line naming which renames fired and which the artifact never
+used), `evidence/20260916T103359-b6838d/` (the same run without `--tenant`, for the before/after)
 
 | Path | Contents |
 |---|---|

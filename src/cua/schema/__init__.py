@@ -36,6 +36,7 @@ from .predicate import (
     TextPresent,
     ValueEquals,
 )
+from .overlay import TenantOverlay
 from .profile import AppProfile, Interstitial
 from .result import (
     Failure,
@@ -88,6 +89,7 @@ __all__ = [
     "SurfaceKind",
     "TargetApp",
     "TargetDescriptor",
+    "TenantOverlay",
     "TextPresent",
     "TypeText",
     "ValueEquals",

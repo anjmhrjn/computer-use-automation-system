@@ -3,8 +3,9 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
+from typing import TypeVar
 
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 
 from .compiler import CompileError, compile, load
 from .discovery import (
@@ -18,8 +19,8 @@ from .discovery import (
 )
 from .escalation import ConsoleClient, EscalationError
 from .policy import Redactor
-from .replay import MissingParameter, replay
-from .schema import AppProfile, Capability, ReplayStatus, dumps
+from .replay import MissingParameter, OverlayError, replay
+from .schema import AppProfile, Capability, ReplayStatus, TenantOverlay, dumps
 from .surface import PlaywrightWebSurface
 
 DEFAULT_TARGET = "http://127.0.0.1:5000"
@@ -27,6 +28,8 @@ DEFAULT_APP = "memberserve"
 DEFAULT_CONSOLE_PORT = 8000
 ARTIFACTS_DIR = Path("artifacts")
 EVIDENCE_DIR = Path("evidence")
+
+_T = TypeVar("_T", bound=BaseModel)
 
 
 def _load(path: Path) -> Capability | None:
@@ -46,23 +49,32 @@ def _load(path: Path) -> Capability | None:
         return None
 
 
-def _load_profile(artifacts: Path, app_id: str) -> AppProfile | None:
-    """Interstitial knowledge lives next to the artifacts, one file per app. A
-    missing profile is an error, not a run without detectors."""
-    path = artifacts.resolve() / "apps" / f"{app_id}.json"
+def _load_sidecar(path: Path, model: type[_T], what: str) -> _T | None:
+    """Per-app and per-tenant knowledge lives next to the artifacts. A missing
+    file is an error, not a run without it."""
     try:
         raw = path.read_text()
     except OSError as exc:
-        print(f"error  no app profile for {app_id!r} at {path}: {exc}", file=sys.stderr)
+        print(f"error  no {what} at {path}: {exc}", file=sys.stderr)
         return None
     try:
-        return AppProfile.model_validate_json(raw)
+        return model.model_validate_json(raw)
     except ValidationError as exc:
         print(f"invalid  {path}", file=sys.stderr)
         for error in exc.errors():
             location = ".".join(str(part) for part in error["loc"]) or "<root>"
             print(f"    {location}: {error['msg']}", file=sys.stderr)
         return None
+
+
+def _load_profile(artifacts: Path, app_id: str) -> AppProfile | None:
+    path = artifacts.resolve() / "apps" / f"{app_id}.json"
+    return _load_sidecar(path, AppProfile, f"app profile for {app_id!r}")
+
+
+def _load_overlay(artifacts: Path, tenant_id: str) -> TenantOverlay | None:
+    path = artifacts.resolve() / "tenants" / f"{tenant_id}.json"
+    return _load_sidecar(path, TenantOverlay, f"tenant overlay for {tenant_id!r}")
 
 
 def _validate(path: Path) -> int:
@@ -129,9 +141,15 @@ def _replay(args: argparse.Namespace) -> int:
     params = _parse_params(args.param)
     if capability is None or params is None:
         return 2
-    profile = _load_profile(args.path.resolve().parent, capability.target.app_id)
+    artifacts = args.path.resolve().parent
+    profile = _load_profile(artifacts, capability.target.app_id)
     if profile is None:
         return 2
+    overlay = None
+    if args.tenant is not None:
+        overlay = _load_overlay(artifacts, args.tenant)
+        if overlay is None:
+            return 2
     escalator = None if args.console is None else ConsoleClient(args.console)
 
     try:
@@ -145,8 +163,9 @@ def _replay(args: argparse.Namespace) -> int:
                 log_stream=sys.stderr,
                 escalator=escalator,
                 evidence_dir=args.evidence_dir,
+                overlay=overlay,
             )
-    except MissingParameter as exc:
+    except (MissingParameter, OverlayError) as exc:
         print(f"error  {exc.expected}; {exc.observed}", file=sys.stderr)
         return 2
     except EscalationError as exc:
@@ -226,6 +245,11 @@ def app() -> int:
         "--param", action="append", default=[], metavar="NAME=VALUE", help="capability input"
     )
     run.add_argument("--target", default=DEFAULT_TARGET, help="base URL of the app")
+    run.add_argument(
+        "--tenant",
+        metavar="ID",
+        help="apply artifacts/tenants/<ID>.json renames before replaying; without it the base names are used",
+    )
     run.add_argument(
         "--approve-risky",
         action="store_true",
