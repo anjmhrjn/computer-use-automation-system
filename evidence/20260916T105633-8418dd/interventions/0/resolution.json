@@ -1,0 +1,5 @@
+{
+ "kind": "abort",
+ "resume_from": null,
+ "note": "risky write not approved for unattended run"
+}

@@ -1,0 +1,296 @@
+{
+  "schema_version": "1.0",
+  "capability_id": "memberserve.lookup_member_plan_status_and_renewal_date.risky_fixture",
+  "version": "1.0.0",
+  "name": "lookup_member_plan_status_and_renewal_date",
+  "description": "Guardrail fixture, not a discovered capability: the compiled lookup artifact with click_search re-classed risky so invariant 12 can be shown against an app that has no write action.",
+  "target": {
+    "app_id": "memberserve",
+    "app_version": "3.1",
+    "surface_kind": "web",
+    "location_pattern": "/member/*"
+  },
+  "inputs": [
+    {
+      "name": "member_id",
+      "value_type": "string",
+      "required": true,
+      "sensitivity": "pii",
+      "description": "The unique identifier of the member whose plan is being queried."
+    }
+  ],
+  "outputs": [
+    {
+      "name": "plan_status",
+      "value_type": "string",
+      "description": "The status of the specified member's plan."
+    },
+    {
+      "name": "renewal_date",
+      "value_type": "date",
+      "description": "The renewal date of the specified member's plan."
+    }
+  ],
+  "outcomes": [
+    {
+      "name": "member_not_found",
+      "kind": "business",
+      "detector": {
+        "kind": "element_present",
+        "target": {
+          "role": "status",
+          "accessible_name": null,
+          "name_match": "exact",
+          "label": null,
+          "nearby_text": [],
+          "container": null,
+          "ordinal": null,
+          "frame_path": [],
+          "evidence": {
+            "ax_snapshot": "ax/004.json",
+            "screenshot": null
+          }
+        }
+      },
+      "binds": [],
+      "description": "No member was found for the given member_id, as indicated by the status element."
+    },
+    {
+      "name": "plan_status_and_renewal_date_found",
+      "kind": "success",
+      "detector": {
+        "kind": "element_present",
+        "target": {
+          "role": "definition",
+          "accessible_name": null,
+          "name_match": "exact",
+          "label": "Renewal Date",
+          "nearby_text": [],
+          "container": null,
+          "ordinal": null,
+          "frame_path": [
+            "Member Record"
+          ],
+          "evidence": {
+            "ax_snapshot": "ax/005.json",
+            "screenshot": null
+          }
+        }
+      },
+      "binds": [
+        "plan_status",
+        "renewal_date"
+      ],
+      "description": "Successfully found the plan status and renewal date for the specified member."
+    }
+  ],
+  "steps": [
+    {
+      "step_id": "navigate_members_search",
+      "intent": "navigate to member search page to begin lookup",
+      "action": {
+        "kind": "navigate",
+        "location": "/members/search"
+      },
+      "target": null,
+      "risk": "read_only",
+      "postcondition": {
+        "kind": "location_matches",
+        "pattern": "/members/search"
+      },
+      "postcondition_timeout_ms": 10000
+    },
+    {
+      "step_id": "enter_member_id",
+      "intent": "enter the member_id into the Member ID textbox",
+      "action": {
+        "kind": "type_text",
+        "value": {
+          "kind": "parameter",
+          "name": "member_id"
+        }
+      },
+      "target": {
+        "role": "textbox",
+        "accessible_name": "Member ID",
+        "name_match": "exact",
+        "label": "Member ID",
+        "nearby_text": [],
+        "container": null,
+        "ordinal": null,
+        "frame_path": [],
+        "evidence": {
+          "ax_snapshot": "ax/001.json",
+          "screenshot": null
+        }
+      },
+      "risk": "reversible",
+      "postcondition": {
+        "kind": "value_equals",
+        "target": {
+          "role": "textbox",
+          "accessible_name": "Member ID",
+          "name_match": "exact",
+          "label": "Member ID",
+          "nearby_text": [],
+          "container": null,
+          "ordinal": null,
+          "frame_path": [],
+          "evidence": {
+            "ax_snapshot": "ax/001-after.json",
+            "screenshot": null
+          }
+        },
+        "expected": {
+          "kind": "parameter",
+          "name": "member_id"
+        }
+      },
+      "postcondition_timeout_ms": 10000
+    },
+    {
+      "step_id": "click_search",
+      "intent": "search for the member using the entered member_id",
+      "action": {
+        "kind": "click"
+      },
+      "target": {
+        "role": "button",
+        "accessible_name": "Search",
+        "name_match": "exact",
+        "label": null,
+        "nearby_text": [],
+        "container": {
+          "role": "form",
+          "accessible_name": "Member search"
+        },
+        "ordinal": null,
+        "frame_path": [],
+        "evidence": {
+          "ax_snapshot": "ax/002.json",
+          "screenshot": null
+        }
+      },
+      "risk": "risky",
+      "postcondition": {
+        "kind": "location_matches",
+        "pattern": "/member/*"
+      },
+      "postcondition_timeout_ms": 10000
+    },
+    {
+      "step_id": "read_plan_status",
+      "intent": "read the plan status from the definition labeled 'Plan Status'",
+      "action": {
+        "kind": "read_text",
+        "bind_to": "plan_status"
+      },
+      "target": {
+        "role": "definition",
+        "accessible_name": null,
+        "name_match": "exact",
+        "label": "Plan Status",
+        "nearby_text": [],
+        "container": null,
+        "ordinal": null,
+        "frame_path": [
+          "Member Record"
+        ],
+        "evidence": {
+          "ax_snapshot": "ax/003.json",
+          "screenshot": null
+        }
+      },
+      "risk": "read_only",
+      "postcondition": {
+        "kind": "element_present",
+        "target": {
+          "role": "definition",
+          "accessible_name": null,
+          "name_match": "exact",
+          "label": "Plan Status",
+          "nearby_text": [],
+          "container": null,
+          "ordinal": null,
+          "frame_path": [
+            "Member Record"
+          ],
+          "evidence": {
+            "ax_snapshot": "ax/003-after.json",
+            "screenshot": null
+          }
+        }
+      },
+      "postcondition_timeout_ms": 10000
+    },
+    {
+      "step_id": "read_renewal_date",
+      "intent": "read the renewal date from the definition labeled 'Renewal Date'",
+      "action": {
+        "kind": "read_text",
+        "bind_to": "renewal_date"
+      },
+      "target": {
+        "role": "definition",
+        "accessible_name": null,
+        "name_match": "exact",
+        "label": "Renewal Date",
+        "nearby_text": [],
+        "container": null,
+        "ordinal": null,
+        "frame_path": [
+          "Member Record"
+        ],
+        "evidence": {
+          "ax_snapshot": "ax/004.json",
+          "screenshot": null
+        }
+      },
+      "risk": "read_only",
+      "postcondition": {
+        "kind": "element_present",
+        "target": {
+          "role": "definition",
+          "accessible_name": null,
+          "name_match": "exact",
+          "label": "Renewal Date",
+          "nearby_text": [],
+          "container": null,
+          "ordinal": null,
+          "frame_path": [
+            "Member Record"
+          ],
+          "evidence": {
+            "ax_snapshot": "ax/004-after.json",
+            "screenshot": null
+          }
+        }
+      },
+      "postcondition_timeout_ms": 10000
+    }
+  ],
+  "checkpoint": {
+    "kind": "element_present",
+    "target": {
+      "role": "definition",
+      "accessible_name": null,
+      "name_match": "exact",
+      "label": "Renewal Date",
+      "nearby_text": [],
+      "container": null,
+      "ordinal": null,
+      "frame_path": [
+        "Member Record"
+      ],
+      "evidence": {
+        "ax_snapshot": "ax/005.json",
+        "screenshot": null
+      }
+    }
+  },
+  "provenance": {
+    "transcript_run_id": "20260915T160505-f09d3b",
+    "discovered_at": "2026-09-15T16:05:05-0400",
+    "compiler_version": "1.0"
+  }
+}

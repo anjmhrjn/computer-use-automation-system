@@ -118,6 +118,9 @@ the thing. That is a unit test in item 6 and one extra evidence run in item 10, 
 against the artifact that already exists. The branch that is *not* demonstrated — a
 human taking over and completing a risky write — is described in the report rather
 than built, because demonstrating it requires a write feature the task does not have.
+Delivered as `artifacts/…risky_fixture.json` (the compiled artifact, `click_search`
+re-classed) and two runs: `20260916T105604-a5f6b5` halts unattended,
+`20260916T105633-8418dd` raises the intervention request and the operator aborts.
 
 ## Item 3 — Surface port, Playwright adapter, tiered resolver
 

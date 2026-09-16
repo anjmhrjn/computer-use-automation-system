@@ -1,0 +1,8 @@
+{"ts": 1789570593.564141, "event": "action", "step_id": "navigate_members_search", "kind": "navigate", "risk": "read_only", "location": "blank", "target": null}
+{"ts": 1789570593.5859041, "event": "step_completed", "step_id": "navigate_members_search", "resolved_tier": null, "elapsed_ms": 27, "recoveries": []}
+{"ts": 1789570593.626497, "event": "action", "step_id": "enter_member_id", "kind": "typetext", "risk": "reversible", "location": "/members/search", "target": {"role": "textbox", "name": "Member ID"}}
+{"ts": 1789570593.651003, "event": "step_completed", "step_id": "enter_member_id", "resolved_tier": "name", "elapsed_ms": 27, "recoveries": []}
+{"ts": 1789570593.687819, "event": "policy_denied", "step_id": "click_search", "kind": "click", "risk": "risky", "location": "/members/search", "target": {"role": "button", "name": "Search"}, "expected": "risky step approved before dispatch (--approve-risky)", "observed": "risk 'risky', not approved"}
+{"ts": 1789570593.7542121, "event": "intervention_requested", "step_id": "click_search", "request_id": "20260916T105633-8418dd-0", "failure_kind": "approval_required"}
+{"ts": 1789570608.035232, "event": "intervention_resolved", "step_id": "click_search", "request_id": "20260916T105633-8418dd-0", "resolution": "abort", "resume_from": null}
+{"ts": 1789570608.038338, "event": "run_finished", "status": "failed", "outcome": null, "failure_kind": "approval_required"}

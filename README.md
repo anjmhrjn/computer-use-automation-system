@@ -61,7 +61,15 @@ uv run cua replay artifacts/memberserve.lookup_member_plan_status_and_renewal_da
 ```
 
 `--approve-risky` on `replay` lets risky-class steps execute; without it they halt
-(or escalate, with `--console`). The seeded capability has none.
+(or escalate, with `--console`). MemberServe has no write action, so the discovered
+capability has no risky step; `artifacts/…risky_fixture.json` is the same artifact with
+`click_search` re-classed `risky` to show the guardrail:
+
+```bash
+uv run cua replay artifacts/memberserve.lookup_member_plan_status_and_renewal_date.risky_fixture.json --param member_id=10001                                   # halts: approval_required
+uv run cua replay artifacts/memberserve.lookup_member_plan_status_and_renewal_date.risky_fixture.json --param member_id=10001 --console http://127.0.0.1:8000  # raises an intervention request instead
+uv run cua replay artifacts/memberserve.lookup_member_plan_status_and_renewal_date.risky_fixture.json --param member_id=10001 --approve-risky                   # runs
+```
 
 ### Triggering failures
 
@@ -112,6 +120,7 @@ tests/
 |---|---|
 | `artifacts/lookup_member_status.json` | Hand-written capability from item 1. The shape discovery had to learn to emit; still the fixture for the replay and adapter tests. |
 | `artifacts/memberserve.lookup_member_plan_status_and_renewal_date.json` | Compiled from the two committed discovery runs. Carries both the success outcome and `member_not_found`. |
+| `artifacts/memberserve.lookup_member_plan_status_and_renewal_date.risky_fixture.json` | The compiled artifact with `click_search` re-classed `risky` and its own `capability_id`. A guardrail fixture for invariant 12, not a discovered capability. |
 | `artifacts/apps/memberserve.json` | App profile: allowed locations and the interstitial catalogue (detector, dismiss action, failure kind). |
 | `artifacts/tenants/b.json` | Tenant overlay: base→tenant renames of the strings descriptors key on (`renames`), and of frame titles separately (`frames`). Applied by `replay --tenant b`; one file serves every capability for the app. |
 | `schema/capability.schema.json` | JSON Schema for the artifact, generated from the Pydantic models. |
@@ -123,7 +132,7 @@ final checkpoint. Parameters are referenced by name; no value is ever inlined.
 
 ## Reading an evidence directory
 
-Everything under `evidence/` has been through the redactor. Three shapes exist.
+Everything under `evidence/` has been through the redactor. Four shapes exist.
 
 **Discovery run** — `evidence/20260915T160505-f09d3b/` (success) and
 `evidence/20260915T160854-f94d73/` (business outcome, `member_not_found`)
@@ -148,6 +157,14 @@ used), `evidence/20260916T103359-b6838d/` (the same run without `--tenant`, for 
 | `events.jsonl` | Every action, step completion, recovery and policy decision. |
 | `ax/<step_id>.json` + `.png` | The observation the step's postcondition held on, and a screenshot with PII nodes masked. |
 | `failure.json` + `failure.png` | Only on failure: the state the run stopped in. |
+
+**Guardrail** — `evidence/20260916T105604-a5f6b5/` (risky fixture replayed unattended:
+`approval_required` at `click_search`, two actions dispatched, the click never reaches the
+surface; `failure.png` shows the id typed and not submitted) and
+`evidence/20260916T105633-8418dd/` (same with `--console`: the halt becomes an
+intervention request, the operator aborts, the failure is reported unchanged with the
+operator's note under `interventions/0/`). The branch where a human approves and the
+risky step runs is covered by `test_escalation.py`, not recorded.
 
 **Handoff** — `evidence/20260915T181841-180acf/` and `evidence/20260915T182422-3bfc25/`
 
